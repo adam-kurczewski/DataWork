@@ -2,7 +2,7 @@
 
 clear all
 set more off
-cd "C:\Users\kurczew2\Box\Research\HICPS\Code1"
+cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 use HICPS_RISK.dta, clear
 
