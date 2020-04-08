@@ -1,0 +1,311 @@
+---
+title: "Preliminanary Aspirations Data - HICPS"
+author: "Adam Kurczewski"
+date: "7/19/2019"
+output: html_document
+---
+
+####Data Import
+
+```{r message=FALSE}
+library(readr)
+library(dplyr)
+library(janitor)
+library(tidyr)
+```
+
+```{r}
+
+X2016_HICPS <- read_dta("C:/Users/kurczew2/Desktop/Offline Research/HICPS_ZAMBIA/2016 HICPS.dta")
+
+X2017_HICPS_Followup <- read_dta("C:/Users/kurczew2/Desktop/Offline Research/HICPS_ZAMBIA/2017 HICPS Followup.dta")
+
+X2017_HICPS_New_Respondent_Cleaned_Data <- read_dta("C:/Users/kurczew2/Desktop/Offline Research/HICPS_ZAMBIA/2017 HICPS New Respondent Cleaned Data.dta")
+ 
+X2018_HICPS_Follow_up <- read_dta("C:/Users/kurczew2/Desktop/Offline Research/HICPS_ZAMBIA/2018 HICPS Follow-up.dta")
+
+X2018_HICPS_New_Respondent <- read_dta("C:/Users/kurczew2/Desktop/Offline Research/HICPS_ZAMBIA/2018 HICPS New-Respondent.dta")
+
+HICPS_2019_fu <- read_csv("C:/Users/kurczew2/Desktop/Offline Research/HICPS_ZAMBIA/2019_FollowUp.csv")
+
+```
+```{r}
+#create data frames to perform analysis on and to use for reloads
+
+base2016 = X2016_HICPS
+f2017 = X2017_HICPS_Followup
+nr2017 = X2017_HICPS_New_Respondent_Cleaned_Data
+f2018 = X2018_HICPS_Follow_up
+nr2018 = X2018_HICPS_New_Respondent
+f2019 = HICPS_2019_fu[-(1:2),]
+
+#Trim to contain Aspirations and Rainfall Perceptioins
+## comb through to find any othe sections that may provide insight if rainfall perceptions provide interesting insight.
+```
+
+selection process
+
+```{r}
+#base2016 = base2016 %>%
+#  select(HHID, latitude:language, hh_num:here_17) %>%
+#  gather("member_relate", "relation", contains("relate_"))
+
+#marital status of household head (single, widowed or divorced)
+base2016$hhh_marital_status = ifelse(base2016$member_relate == "relate_1" & base2016$relation == 2, 1, 0)
+
+base2016$relation[is.na(base2016$relation)] = 0
+sum(is.na(base2016$relation))
+
+base2016$hhh_marital_status[base2016$relation == 1] = ifelse(base2016$member_relate == "relate_1" & base2016$relation == 2, 1, 0)
+
+#only 2016 household heads
+base2016 = filter(base2016, relation == 1)
+
+f2017 = f2017 %>%
+  select(HHID)
+  
+#join the Base HH with their alleged follow up year - hypothetically, all the HHIDs in the 2017 Follow Up should exist in the 2016 baseline, but that is not the case for about 80 households
+
+ZAM_HICPS_17 = inner_join(base2016, f2017)
+
+```
+
+```{r}
+#trim data to only include relevant demographic information, gather the roster data to allow for identification of household head, filter to only include the hosehold heads.
+nr2017 = nr2017 %>%
+  select(HHID:phone_number, hh_num:edu_10) %>%
+  gather("member_relate", "relation", contains("relate_"))
+
+#calculating age of household head
+nr2017$hhh_age = ifelse(nr2017$member_relate == "relate_1" & nr2017$relation == 1,  2019 - nr2017$birth_1, 2019 - nr2017$birth_2)
+
+#sex of household head
+nr2017$hhh_edu = ifelse(nr2017$member_relate == "relate_1" & nr2017$relation == 1, nr2017$edu_1, nr2017$edu_2)
+
+#education of household head
+nr2017$hhh_sex = ifelse(nr2017$member_relate == "relate_1" & nr2017$relation == 1, nr2017$sex_1, nr2017$sex_2)
+
+#marital status of household head (single, widowed or divorced)
+nr2017$hhh_marital_status = ifelse(nr2017$member_relate == "relate_1" & nr2017$relation == 2, 1, 0)
+
+#filter to include only household heads and the variable that will be matching in ZAM_HICPS
+nr2017 = nr2017 %>%
+  filter(relation == 1) %>%
+  rename(phone = mobile_phone)
+```
+
+```{r}
+#rename the HHH info variables from compiled 2016/2017 data to match NR 2017
+ZAM_HICPS_17 = ZAM_HICPS_complete %>%
+  rename(hhh_age = hh_head_age, hhh_edu = hh_head_edu, hhh_sex = hh_head_sex, longitude = longtitude)
+
+ZAM_HICPS_NR2017 = bind_rows(ZAM_HICPS_17, nr2017) %>%
+  select(HHID, latitude, longitude, province, district, camp, village, name, name2, phone, phone_number, member_relate, relation, hh_num, hhh_age, hhh_edu, hhh_sex, hhh_marital_status)
+
+#sanity check
+#colSums(is.na(ZAM_HICPS_NR2017))
+```
+
+At this point, the data contains the base year, the HHIDs of individuals who were followed up from 2016 in 2017, and the HHIDs of individuals who were added in 2017.
+
+Adding the follow ups from 2018 and the new respondents from 2018:
+```{r}
+#follw up from 18
+
+f2018 = f2018 %>%
+  select(HHID)
+
+ZAM_HICPS_17_18 = inner_join(ZAM_HICPS_NR2017, f2018)
+
+#new respondents 18
+nr2018 = nr2018 %>%
+  select(HHID, name:language, hh_num:edu_21, latitude:village, district) %>%
+  gather("member_relate", "relation", contains("relate_"))
+
+
+# ADJUST FROM 2017 TO 2018
+
+
+#calculating age of household head
+nr2018$hhh_age = ifelse(nr2018$member_relate == "relate_1" & nr2018$relation == 1,  2019 - nr2018$birth_1, 2019 - nr2018$birth_2)
+
+#sex of household head
+nr2018$hhh_edu = ifelse(nr2018$member_relate == "relate_1" & nr2018$relation == 1, nr2018$edu_1, nr2018$edu_2)
+
+#education of household head
+nr2018$hhh_sex = ifelse(nr2018$member_relate == "relate_1" & nr2018$relation == 1, nr2018$sex_1, nr2018$sex_2)
+
+#marital status of household head (single, widowed or divorced)
+nr2018$hhh_marital_status = ifelse(nr2018$member_relate == "relate_1" & nr2018$relation == 2, 1, 0)
+
+nr2018 = nr2018 %>%
+  filter(relation == 1) %>%
+  rename(camp = original_camp) %>%
+  select(names(ZAM_HICPS_17_18))
+
+#merge with complete data
+ZAM_HICPS_17_18 = bind_rows(ZAM_HICPS_17_18, nr2018)
+
+#clear attributes to avoid millions of annoying errors
+#potential to do this earlier for each individual data set ...
+ZAM_HICPS_17_18 = zap_formats(ZAM_HICPS_17_18)
+```
+
+On to 19...
+```{r}
+#still waiting on 2019 NR - but can perform most analysis without it for now
+
+#adding 2019 follow up HHIDS
+f2019 = f2019 %>%
+  rename(HHID = Q1.4) %>%
+  select(HHID)
+  
+f2019$HHID = as.numeric(f2019$HHID)
+
+ZAM_HICPS_complete = inner_join(ZAM_HICPS_17_18, f2019)
+
+#this process was simply to get the HHIDs of the households that were in the baseline, or that joined in 2017 or 2018, and stayed with the survey until the last round.  I only need this information to get the demographic information of those who had previously participated and who answered in 2019 - otherwise, I can sync the HHIDs from those who are in the ZAM_HICPS_complete data frame to pick out the survey questions I need for analysis.  Thus, my sample is the 885 households in the complete ZAM_HICPS data frame.
+
+```
+
+
+##### DISCLAIMER #####
+
+going to need to review merging data sets because the amount of observations I lost while merging data that was supposed to be FOLLOW UP surveys is concerning.  I can speak with Nico about this when I get home...
+
+#### exploration // cleaning
+
+##### demographics
+
+Another new file so I dont screw anything up...
+```{r}
+ZAM_HICPS = ZAM_HICPS_complete
+```
+
+
+```{r}
+#vector of variable of interest variable names
+
+hhh_descriptors = c("hh_num", "hhh_age", "hhh_edu", "hhh_sex", "hhh_marital_status")
+
+geo_desciptors = c("province", "district", "camp", "village")
+
+summary(ZAM_HICPS[, hhh_descriptors])
+```
+
+```{r}
+#hh_num
+
+hist(ZAM_HICPS$hh_num)
+```
+
+the number of individuals per household is skewed left in this sample.  However, the outliers are not pulling the mean significantly far away from the median, so no correction is necessary.  The median number of individuals in a household is 7    
+###### age
+
+```{r}
+
+hist(ZAM_HICPS$hhh_age)
+
+#identify why there are people who are thousands of years old
+
+# ZAM_HICPS$hhh_age[ZAM_HICPS$hhh_age > 100 & !is.na(ZAM_HICPS$hhh_age)]
+
+#replace birth year with age
+ZAM_HICPS$hhh_age = ifelse(ZAM_HICPS$hhh_age > 100 & !is.na(ZAM_HICPS$hhh_age), 2019 - ZAM_HICPS$hhh_age, ZAM_HICPS$hhh_age)
+```
+
+Appears someone entered the birth years instead of the age for one of the surveys. Replaced with their age as of 2019.  After correction the distribution of age is normal centered around 40.
+
+###### education
+
+
+```{r}
+
+hist(ZAM_HICPS$hhh_edu)
+```
+
+The bimodal distribution of the education of our sample indicates that, for a high number of our sample, primary school was the highest level of education obtained, while for another large proportion, some secondary school was completed.  There is potential for this to differentiate the level of aspirations each group has, and could be investigated further if needed, but overall the average educational attainment of this sample is completion of primary school (coded as 3 in the survey).
+
+###### sex
+
+```{r}
+
+mean(ZAM_HICPS$hhh_sex) * 100
+```
+
+82% of the sample is male, which is not surprising but could potentially skew our results, as Bernard et al. prove that there are significant differences between the level of aspirations of men and women.
+
+###### marital status
+
+```{r}
+
+??????????
+```
+
+
+###### district, village, camp
+```{r}
+
+??????????????????
+```
+
+
+###### aspirations
+
+First, it is necessary to merge the aspirations portions of the 2019 survey on the HHID.
+
+```{r}
+#library(sjlabelled)
+#var.labels = unlist(HICPS_2019_fu[1,])
+
+#HICPS_2019_fu = HICPS_2019_fu[-c(1,2), ]
+#HICPS_2019_fu = set_label(HICPS_2019_fu, label = var.labels)
+
+aspirations_2019 = HICPS_2019_fu %>%
+  select(Q1.4, Q26.2_1:Q26.27_8) %>%
+  rename(HHID = Q1.4) %>%
+  rename(importance_employment = Q26.2_1, importance_edu = Q26.2_2, importance_respect = Q26.2_3, importance_land = Q26.2_4, importance_livestock = Q26.2_5, importance_assets = Q26.2_6) %>%
+  rename(current_land = Q26.3_1, aspired_land = Q26.4_3, land_changed = Q26.5, changed_direction_land = Q26.6) %>%
+  rename(current_livestock = Q26.8_1, aspired_livestock = Q26.9_3, livestock_changed = Q26.10, changed_direction_livestock = Q26.11) %>%
+  rename(current_asset = Q26.12_1, aspired_asset = Q26.13_3, changed_asset = Q26.14, changed_direction_asset = Q26.15, asset_comments = Q26.16)
+```
+
+
+```{r}
+#sample's perception of importance of various dimensions
+sapply(aspirations_2019[,2:7], table)
+
+```
+
+The majority of our sample ranks each livlihood dimension as highly important.  Considering the intention of this measure is to weight their respective aspirations/concerns for these dimensions, this is interesting.  Essentially, I have a sample who thinks all aspects of life are important, which should in theory translate to high aspirations or concerns for all areas.  It will be interesting to see if there is clustering on certain dimensions or if the trend holds true ie we see similarly exaggerated aspirations/concerns later.
+
+```{r}
+
+aspirations_2019[c(8,9,13,14,17,18)] = sapply(aspirations_2019[c(8,9,13,14,17,18)], as.numeric)
+
+sapply(aspirations_2019[c(8,9,13,14,17,18)], summary)
+
+```
+
+Despire the noticabily large NA count, the direction from current ownership to aspired ownership is pointing in the right direction, which is a relief. This signals 1. there was no confusion and people had a good idea of their own expectations for the future, 2. there was nothing affecting the population that might drive their expectations for the future down unrelated to what they aspired for individually (conflict in the region, need to sell of large portion of land/livestock/assets) and 3. we have a generally optimistic sample.
+
+NA's stand to significantly reduce the statistical efficacy of this sample though.
+
+
+####Creating Asset Index:
+
+- Calculate the difference between current ownership for land/livestock/assets
+  - C sub A - D sub A
+  
+- How to take into account the change in aspirations over the last 3 years, and whether it is higher (they are gaining hope) or lower (they are losing hope)???
+
+
+Additional Sections
+
+Finances (Section 4)
+
+ - Build an image of how the household currently sits in terms of asset ownership and income (4.22).  This should be used as a validation/supplementation to the ~percieved~ asset ownership they report in the Aspirations section.  
+ 
+Food Diversity and Security
+ 
+ - Using this and section 4 to get an idea of the extent to which a HH experiences poverty as expressed by their reported asset ownership, income, Food Diversity and Security.  Use old Poverty Econ HW to determine what measurements of Food Diversity and Security each are obtainable given and will be helpful in adding variation to our data.  The idea being that who will 

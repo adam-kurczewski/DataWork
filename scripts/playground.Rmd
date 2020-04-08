@@ -1,0 +1,774 @@
+---
+title: "HICPS: Data Exploration"
+author: "Adam Kurczewski"
+date: "10/8/2019"
+output: pdf_document
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(haven)
+library(ggplot2)
+library(knitr)
+library(heplots)
+```
+
+```{r echo=FALSE}
+HICPS_RISK <- read_dta("C:/Users/kurczew2/Box/Research/HICPS/HICPS_RISK.dta")
+X2019_HICPS_Follow_up <- read_dta("C:/Users/kurczew2/Box/Research/HICPS/2019 HICPS Follow-up.dta")
+
+#HICPS = HICPS_all
+
+MasterHICPS_RISK = read_dta("C:/Users/kurczew2/Box/Research/HICPS/HICPS_RISK.dta")
+
+HICPS_2019 = MasterHICPS_RISK %>%
+  filter(year == 2019)
+```
+
+
+
+*******************************************************************************************************************************************************************************************
+
+Current Plan:
+- restandardize according to Kossac
+- recreate aspirations index with new standarization method and proper weighting
+- descriptive to include aspiraitons by gender, educ
+- descriptive of aspiration weights
+- rethink regression approach:
+  - asirations ~ shock CROSS TAB (considering shock is categorical - average of continuous variable by the categorical variable)
+    - aggregate shock variable to use as mai shock indicator
+  - use of ag inputs ~ aspirations (again CROSS TAB as it is categorical ~ continuous)
+  - mapping?
+  
+*****************************************************************************************************************************************************************************************
+
+#### Descriptives
+
+Treat NAs before proceeding - used to calculate proportions creating a difference between stata props and R props
+Report on outcome variables - Fertilize use, cooperative engagement, pest control, drought protection (?)
+
+##### Weather
+
+Still need to look through Weather, Maize, and any other section that has possible weather shock identifiers (only went through rainfall)
+
+  + Weather expectations - correlations between weather expectations and aspirations
+
+Table 1 reports that ~65% of our sample experienced some form of drought in the 2018-19 growing season.  This is confirmed in table 2, which shows that 35% experienced a dry spell, and an additional ~25% experienced a dry spell along with some other weather event (warmer than average temps, rains that arrived late, or low total seasonal rains).  On average, HHs reported 33 days passing without rain in the 2019 growing season (table 3), an event that a quarter of HHs reported experiencing every other year (table 4).  Table 5 indicates that, over the last 4 growing seasons, most households were affected in 2019, or both 2019 and 2018.
+
+How would a Diff-in-Diff fit with the pattern of drought affects?  Parrallel trends concern with or are there few enough HH experiencing drought in 17 and 16 to be okay?  
+
+Adive on breaking down "Seasons affected by drought" into something more easily interpretted
+
+```{r echo=FALSE}
+weather_2019 = HICPS_2019 %>%
+  select(rainfall_19, rainfall_events, drought_seasons, droughtint, prepared, droughtfreq)
+```
+
+  + Distribution of Subjective Rainfall Intensity in 18-19 Growing Season:
+
+```{r subjective-rainfall, echo=FALSE}
+# distribution of subjective rainfall in 18-19 growing season
+kable(data.frame(rainfall_character = c("Severe Drought", "Moderate Drought", "Average", "Above Average", "Too much"),
+           proportion = c(table(weather_2019$rainfall_19)[1] / sum(!is.na(weather_2019$rainfall_19))*100,
+                          table(weather_2019$rainfall_19)[2] / sum(!is.na(weather_2019$rainfall_19))*100,
+                          table(weather_2019$rainfall_19)[3] / sum(!is.na(weather_2019$rainfall_19))*100,
+                          table(weather_2019$rainfall_19)[4] / sum(!is.na(weather_2019$rainfall_19))*100,
+                          table(weather_2019$rainfall_19)[5] / sum(!is.na(weather_2019$rainfall_19))*100)),
+      col.names = c("Event", "Proportion"),
+      digits = 3,
+      align = c("l","c"),
+      caption = "Share of households experiencing various degrees of rainfall in the 2018-2019 growing season")
+```
+
+\newpage
+  + Severe Weather Events affecting 2018-19 growing season:
+
+
+```{r severe-weather, echo=FALSE}
+
+# rainfall events
+
+## weather_2019_sep = separate(data = weather_2019, col = rainfall_events, into = c("one_event", "two_events", "three_events", "four_events", "five_events"), sep = ",")
+
+# dummys for severe weather events  effecting 2018-2019 growing season
+## 1
+weather_2019$late_rain = ifelse(grepl("[1]", weather_2019$rainfall_events), 1, 0)
+## 2
+weather_2019$dry_spell = ifelse(grepl("[2]", weather_2019$rainfall_events), 1, 0)
+## 3
+weather_2019$low_seasonal_rain = ifelse(grepl("[3]", weather_2019$rainfall_events), 1, 0)
+## 4
+weather_2019$warm_temps = ifelse(grepl("[4]", weather_2019$rainfall_events), 1, 0)
+## 5
+weather_2019$flooding = ifelse(grepl("[5]", weather_2019$rainfall_events), 1, 0)
+## 6
+weather_2019$rainfall_other = ifelse(grepl("[6]", weather_2019$rainfall_events), 1, 0)
+
+attach(weather_2019)
+
+## affected by at least one rainfall event
+# affected in some way by low/late precipitation
+rain_event =  sum(late_rain == 1 | dry_spell == 1 | low_seasonal_rain == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+# affected by at least late rains
+min_late_rain = sum(late_rain == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+# affected by at least a dry spell
+min_dry_spell = sum(dry_spell == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+# affected by at least low seasonal rainfall
+min_low_rain = sum(low_seasonal_rain == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+# affected by at least warm temps
+min_warm_temps = sum(warm_temps == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#affected by at least flooding
+min_flooding = sum(flooding == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+detach(weather_2019)
+```
+```{r severe-weather-combinations, echo=FALSE, eval=F}
+## unused combinations of weather events - unused because current (above) method accounts for experienceing all possible combinations of weather events 
+attach(weather_2019)
+
+## experienced combinations of severe weather events or weather events meeting strict conditions
+#only experienced late rains - unconditional on temperature/flooding experience
+late_rain_only = sum(late_rain == 1 & dry_spell != 1 & low_seasonal_rain != 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#late rains and dry spell - unconditional on temperature/flooding experience
+dry_late = sum(late_rain == 1 & dry_spell == 1 & low_seasonal_rain != 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#late rains, dry spell and low seasonal rains - unconditional on temperature/flooding experience
+dry_late_low = sum(late_rain == 1 & dry_spell == 1 & low_seasonal_rain == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+dry_late_low_warm = sum(late_rain == 1 & dry_spell == 1 & low_seasonal_rain == 1 & warm_temps == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#dry spell only - unconditional on temperature/flooding
+dry_only = sum(late_rain != 1 & dry_spell == 1 & low_seasonal_rain != 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#dry spell and warm temps
+dry_warm = sum(late_rain != 1 & dry_spell == 1 & low_seasonal_rain != 1 & warm_temps == 1 & flooding != 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#low seasonal rains only - unconditional
+low_only = sum(late_rain != 1 & dry_spell != 1 & low_seasonal_rain == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#warm temps only - unconditional on rainfall experience
+warm_only = sum(late_rain != 1 & dry_spell != 1 & low_seasonal_rain != 1 & warm_temps == 1 & flooding != 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+#flooding only - unconditional on rainfall experience
+flood_only = sum(flooding == 1) / sum(!is.na(weather_2019$rainfall_events)) * 100
+
+detach(weather_2019)
+```
+```{r severe-weather-table, echo=FALSE }
+kable(data.frame(event = c("Late Rains", "Dry Spell", "Low Seasonal Rainfall", "Warm Temperatures", "Flooding"),
+                 prop = c(min_late_rain, min_dry_spell, min_low_rain, min_warm_temps, min_flooding)),
+      col.names = c("Weather Event", "Proportion"),
+      digits = 3,
+      align = c("l","c"),
+      caption = "Share of sample experiencing various weather shocks: proportions aggregated to reflect those who reported experiencing at least at least a given weather event, most experienced multiple")
+```
+
+The statistics reported above represent HHs that experienced *at least* the category of weather event.  Note that most HHs experienced a combination of multiple weather events.  **insert statistics into the text identifying how many HH experienced certain combinations of weather events, primarily drought specific conditions such as low rains, dry spell, low seasonal rains and warmer temps.**  
+
+ + Drought Lengths in 2019:
+```{r graph-drought.lengths, echo=FALSE, eval=FALSE}
+ggplot(data = weather_2019, aes(x = droughtint)) + 
+  geom_histogram(na.rm = T, binwidth = 4, fill = "white", color = "black") + 
+  theme_grey()
+```
+
+```{r chart-drought.length-table, echo=FALSE}
+kable(data.frame(statistic = c("Mean", "Median", "Max.", "Min."),
+           numbers = c(33.16, 30, 120, 5)),
+      col.names = c("", "Drought Length in 2019 (days)"),
+      align = c("l","c"),
+      caption = "summary statistics of reported drought lengths for 2018-2019 growing season")
+```
+
+  + Frequency with which the houshold experiences a drought
+```{r chart-drought.freq, warning=FALSE, echo=FALSE}
+attach(weather_2019)
+kable(data.frame(often = c("Every year", "Every other year", "Once every 3 years", "Once every 4 years", "Once every 5", "Once every 10 years or less", "I have never experienced a drought"),
+           frequency = c(table(droughtfreq)[1],
+                         table(droughtfreq)[2],
+                         table(droughtfreq)[3],
+                         table(droughtfreq)[4],
+                         table(droughtfreq)[5],
+                         table(droughtfreq)[10],
+                         table(droughtfreq)[11]),
+           prop = c(table(droughtfreq)[1] / sum(!is.na(droughtfreq))*100,
+                    table(droughtfreq)[2] / sum(!is.na(droughtfreq))*100,
+                    table(droughtfreq)[3] / sum(!is.na(droughtfreq))*100,
+                    table(droughtfreq)[4] / sum(!is.na(droughtfreq))*100,
+                    table(droughtfreq)[5] / sum(!is.na(droughtfreq))*100,
+                    table(droughtfreq)[10] / sum(!is.na(droughtfreq))*100,
+                    table(droughtfreq)[11] / sum(!is.na(droughtfreq))*100)),
+      col.names = c("Experience", "Frequency", "Proportion"),
+      align = c("l", "c", "c"),
+      digits = 3,
+      caption = "How often HH experienced a drought in the past - 'Once Every 6, 7, 8, 9' < 5% cummulative")
+detach(weather_2019)
+```
+
++ Growing seasons affected by drought in the past 4 years:
+
+```{r season-affected, echo=F}
+## seasons effected by drought
+
+# dummys for seasons effected by severe drought
+weather_2019$drought_season.1819 = ifelse(grepl("[1]", weather_2019$drought_seasons), 1, 0)
+weather_2019$drought_season.1718 = ifelse(grepl("[2]", weather_2019$drought_seasons), 1, 0)
+weather_2019$drought_season.1617 = ifelse(grepl("[3]", weather_2019$drought_seasons), 1, 0)
+weather_2019$drought_season.1516 = ifelse(grepl("[4]", weather_2019$drought_seasons), 1, 0)
+
+# proportions of HH reporting drought affected at least N growing seasons
+
+# at least one growing seasons affected
+attach(weather_2019)
+all_seasons = sum(drought_season.1819 == 1 | drought_season.1718 == 1 | drought_season.1617 == 1 | drought_season.1516 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# affected in 2019
+droughtseason_2019 = sum(drought_season.1819 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# 2018
+droughtseason_2018 = sum(drought_season.1718 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# 2017
+droughtseason_2017 = sum(drought_season.1617 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# 2016
+droughtseason_2016 = sum(drought_season.1516 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+```
+```{r seasons-effected-combos, echo=FALSE, eval=FALSE}
+# only 2018-2019 affected
+only_1819 = sum(drought_season.1819 == 1 & drought_season.1718 != 1 & drought_season.1617 != 1 & drought_season.1516 != 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+# 2018-19 AND 2017-18 affected
+both_1819_1718 = sum(drought_season.1819 == 1 & drought_season.1718 == 1 & drought_season.1617 != 1 & drought_season.1516 != 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+# 2018-19 AND 2015-16 affected
+both_1819_1516 = sum(drought_season.1819 == 1 & drought_season.1718 != 1 & drought_season.1617 != 1 & drought_season.1516 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+# 2018-19 AND 2016-17
+both_1819_1617 = sum(drought_season.1819 == 1 & drought_season.1718 != 1 & drought_season.1617 == 1 & drought_season.1516 != 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# only 2017-2018 affected
+only1718 = sum(drought_season.1819 != 1 & drought_season.1718 == 1 & drought_season.1617 != 1 & drought_season.1516 != 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# only 2016-2017 affected
+only1617 = sum(drought_season.1819 != 1 & drought_season.1718 != 1 & drought_season.1617 == 1 & drought_season.1516 != 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+# only 2015-2016 affected
+only1516 = sum(drought_season.1819 != 1 & drought_season.1718 != 1 & drought_season.1617 != 1 & drought_season.1516 == 1) / sum(!is.na(weather_2019$drought_seasons)) * 100
+
+detach(weather_2019)
+```
+```{r table-seasons.affected, echo=FALSE}
+# table creation
+
+kable(data.frame(number = c(1,2,3,4,5),
+                 seasons_affected = c("At least one","2019", "2018", "2017", "2016"),
+           prop = c(all_seasons, droughtseason_2019, droughtseason_2018, droughtseason_2017, droughtseason_2016)),
+      col.names = c("","Seasons Affected", "Proportion"),
+      digits = 3,
+      align = c("l","l","c"),
+      caption = "Share of sample experiencing drought in a given season: aggregated to reflect those experiencing a drought in at least a given season - most experienced drought in multiple seasons")
+```
+
+The statistics reported in table 5 represent the HH that reported eperiencing drought conditions in *at least* one of the growing seasons.  Most households reported drought conditions for multiple growing seasons.  Mention in the text of the final document where possible clustering occurs - 2019 and 2018 growing seasons seem to be the most widely affected.
+\newpage
+##### Aspirations
+
+```{r graph-aspirations, echo=FALSE}
+aspirations_2019 = HICPS_2019 %>%
+  select(importance_occup:c_social_insta_3)
+
+# Land, Livestock and Asset aspirations are already standardized because we ask about ownership levels as opposed to quantities/amounts
+
+## Land Ownership Aspirations 
+
+ggplot(data = aspirations_2019, aes(rank_land_10)) + 
+  geom_histogram(na.rm = T, binwidth = 4, fill = "#E69F00", alpha = 0.5) +
+  geom_histogram(aes(x=rank_asset), na.rm = T, binwidth = 4,fill = "#999999", alpha = 0.5) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, 150)) +
+  labs(title = "Distribution of Land Aspirations",
+       subtitle = "Grey - Current Ownership; Gold - Aspired Ownership",
+       x = "Ownership Level",
+       y = "Frequency",
+       caption = "'Aspired Level' represents the level of ownership for a given dimension \n relative to the rest of the village, the individual aspires for in ten years time") +
+  theme_grey()
+
+## Livestock Ownership Aspirations
+
+ggplot(data = aspirations_2019, aes(rank_livestock_10)) + 
+  geom_histogram(na.rm = T, binwidth = 4, fill = "#E69F00", alpha = 0.5) +
+  geom_histogram(aes(x=rank_asset), na.rm = T, binwidth = 4,fill = "#999999", alpha = 0.5) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,150)) +
+  labs(title = "Distribution of Livestock Aspirations",
+       subtitle = "Grey - Current Ownership; Gold - Aspired Ownership",
+       x = "Ownership Level",
+       y = "Frequency",
+       caption = "'Aspired Level' represents the level of ownership for a given dimension \n relative to the rest of the village, the individual aspires for in ten years time") +
+  theme_grey()
+
+## Asset Ownership Aspirations
+
+ggplot(data = aspirations_2019) + 
+  geom_histogram(aes(x=rank_asset_10), na.rm = T, binwidth = 4, fill = "#E69F00", alpha = 0.5) +
+  geom_histogram(aes(x=rank_asset), na.rm = T, binwidth = 4, fill = "#999999", alpha = 0.5) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,175)) +
+  labs(title = "Distribution of Asset Aspirations",
+       subtitle = "Grey - Current Ownership; Gold - Aspired Ownership",
+       x = "Ownership Level",
+       y = "Frequency",
+       caption = "'Aspired Level' represents the level of ownership for a given dimension \n relative to the rest of the village, the individual aspires for in ten years time") +
+  theme_grey()
+```
+
+```{r table-aspirations, echo=FALSE}
+# Table of descriptives similar to Bernard et al.
+
+a = data.frame(OwnershipDimension = c("Land", "", "Livestock", "", "Asset", "", "Education: Son", "", "Education: Daughter", ""),
+           N = c(sum(!is.na(aspirations_2019$rank_land)), "", sum(!is.na(aspirations_2019$rank_livestock)), "",
+                 sum(!is.na(aspirations_2019$rank_asset)), "", sum(!is.na(aspirations_2019$educ_son)), "",
+                 sum(!is.na(aspirations_2019$educ_daughter)), ""),
+           Current_Ownership = c(round(mean(aspirations_2019$rank_land, na.rm = T), digits = 3),
+                                 "(24.483)",
+                                 round(mean(aspirations_2019$rank_livestock, na.rm = T), digits = 3),
+                                 "(20.490)",
+                                 round(mean(aspirations_2019$rank_asset, na.rm = T), digits = 3), 
+                                 "(18.545)",
+                                 "-",
+                                 "-",
+                                 "-",
+                                 "-"),
+           Aspired_Ownership = c(round(mean(aspirations_2019$rank_land_10, na.rm = T), digits = 3),
+                                 "(25.659)",
+                                 round(mean(aspirations_2019$rank_livestock_10, na.rm = T), digits = 3),
+                                 "(27.570)",
+                                 round(mean(aspirations_2019$rank_asset_10, na.rm = T), digits = 3), 
+                                 "(24.633)",
+                                 round(mean(aspirations_2019$educ_son, na.rm = T), digits = 3),
+                                 "(1.132)",
+                                 round(mean(aspirations_2019$educ_daughter, na.rm = T), digits = 3),
+                                 "(0.909)"))
+
+kable(a,
+      col.names = c("Ownership Dimension", "N", "Current Ownership", "Aspired Ownership"),
+      digits = 3,
+      align = c("l","c", "c", "c"))
+
+
+
+# If we wanted to create an aggregate level,
+# we would need to standardize education in some way 
+# that allows it to be combined with the other dimensions..
+```
+
+\newpage
+##### Risk
+
+```{r calculate-newZ, echo=FALSE}
+
+# recalculating the risk class intervals for our experiment specific expected returns
+# Expected Return = (0.1*lower bound of extreme outcome) + (0.5*average weather yield) + (0.1*upper bound of extreme outcome)
+
+ExpectedReturn = function(lower.bound, average, upper.bound) {
+  (0.1*(lower.bound*50)) + (0.5*(average*50)) + (0.1*(upper.bound*50))
+}
+
+## Standard Errors:
+# Standard Error = yield of upper bound of extreme outcome - lower bound
+StandardError = function(upper.bound, lower.bound) {
+  (0.1*(upper.bound*50)) - (0.1*(lower.bound*50))
+}
+
+## Variety A:
+ExpectedReturn_VarietyA = ExpectedReturn(lower.bound = 5, average = 6, upper.bound = 7)
+StandardError_A = StandardError(7,5)
+
+## Variety B
+StandardError_B = StandardError(14,1)
+
+## Scenario 1: Risk Lover
+ExpectedReturn_RiskLover = ExpectedReturn(lower.bound = 1, average = 5, upper.bound = 14)
+
+## Scenario 2: Risk Neutral
+ExpectedReturn_RiskNeutral = ExpectedReturn(lower.bound = 1, average = 6, upper.bound = 14)
+
+## Scenario 3: Risk Averse 1
+ExpectedReturn_RiskAverse_1 = ExpectedReturn(1,8,14)
+
+## Scenario 4: Risk Averse 2
+ExpectedReturn_RiskAverse_2 = ExpectedReturn(1,10,14)
+
+
+## Recalculated Intervals
+# Z for Risk Lovers
+z_RiskLover = (ExpectedReturn_RiskLover - ExpectedReturn_VarietyA) / (StandardError_B - StandardError_A)
+
+# Z for Risk Neutral
+z_RiskNeutral = (ExpectedReturn_RiskNeutral - ExpectedReturn_VarietyA) / (StandardError_B - StandardError_A)
+
+# Z for Risk Averse 1 
+z_RiskAv1 = (ExpectedReturn_RiskAverse_1 - ExpectedReturn_VarietyA) / (StandardError_B - StandardError_A)
+
+# Z for Risk AVerse 2
+z_RiskAv2 = (ExpectedReturn_RiskAverse_2 - ExpectedReturn_VarietyA) / (StandardError_B - StandardError_A)
+```
+
+
+```{r risk-graph, echo=FALSE, message=FALSE}
+#Distribution of Risk Aversion Coefficients
+ggplot(HICPS_RISK, aes(s_n_hat)) +
+  geom_histogram(color = "black", fill = "white") +
+  geom_vline(aes(xintercept = 0.273),
+             linetype = "dashed",
+             color = "red") +
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             color = "red") +
+  scale_y_continuous(expand = c(0,0), limits = c(0, 350)) +
+  labs(title = "Distribution of Risk Coefficient",
+       x = "Risk Coefficient",
+       y = "Frequency") +
+       #caption = "<0 - Risk Loving \n 0-0.273 - Risk Neutral \n 0.273-1.182 - Moderately Risk Averse \n 1.182-2.09 - Intermediate Risk Aversion")
+  theme_grey()
+```
+
+  + Risk Lover: <0
+  + Risk Neutral: 0 - 0.273
+  + Moderate: 0.273 - 1.182
+  + Intermediate: 1.182 - 2.09
+
+``` {r risk-table, echo=F}
+#Table of proportions
+prop_negative_RiskAversion = round(sum(HICPS_RISK$s_n_hat < 0) / sum(!is.na(HICPS_RISK$s_n_hat)), digits = 3)
+
+prop_neutral_RiskAversion = round(sum(HICPS_RISK$s_n_hat > 0 & HICPS_RISK$s_n_hat < z_RiskNeutral) / sum(!is.na(HICPS_RISK$s_n_hat)), digits = 3)
+
+prop_moderate_RiskAversion = round(sum(HICPS_RISK$s_n_hat > z_RiskNeutral & HICPS_RISK$s_n_hat < z_RiskAv1) / sum(!is.na(HICPS_RISK$s_n_hat)), digits = 3)
+
+prop_intermediate_RiskAversion = round(sum(HICPS_RISK$s_n_hat > z_RiskAv1 & HICPS_RISK$s_n_hat < z_RiskAv2) / sum(!is.na(HICPS_RISK$s_n_hat)), digits = 3)
+
+prop_severe_RiskAversion = round(sum(HICPS_RISK$s_n_hat > z_RiskAv2) / sum(!is.na(HICPS_RISK$s_n_hat)), digits = 3)
+
+#absolute counts of observations in different Risk Aversion intervals
+count_negative_RiskAversion = sum(HICPS_RISK$s_n_hat < 0)
+count_neutral_RiskAversion = sum(HICPS_RISK$s_n_hat > 0 & HICPS_RISK$s_n_hat < z_RiskNeutral)
+count_moderate_RiskAversion = sum(HICPS_RISK$s_n_hat > z_RiskNeutral & HICPS_RISK$s_n_hat < z_RiskAv1)
+count_intermediate_RiskAversion = sum(HICPS_RISK$s_n_hat > z_RiskAv1 & HICPS_RISK$s_n_hat < z_RiskAv2)
+
+kable(data.frame(risk_aversion_interval = c("<0", "0-0.273", "0.273-1.182", "1.182-2.09", "2.09<"),
+           risk_aversion_level = c("Negative", "Neutral", "Moderate", "Intermediate", "Severe"),
+           risk_aversion_distribution = c(prop_negative_RiskAversion, prop_neutral_RiskAversion, prop_moderate_RiskAversion, prop_intermediate_RiskAversion, prop_severe_RiskAversion)),
+      col.names = c("Risk Coefficient Intervals", "Risk Aversion Class", "Proportion"),
+      caption = "n = 2992",
+      align = "c")
+```
+
+
+Expected return for a given variety *n* in a given scenario *k*:
+  
+  + ER~nk~ = (0.1 * (worst case yield * 50kgs)) + (0.5 * (average yield * 50kgs)) + + (0.1 * (best case yield * 50kgs))
+    * *yield reported in # of bags*
+    
+Standard Error for a given scenario *k*:
+
+Confirm that the max and min ER for variety B in each scenario is the same
+
+  + SE~k~ = (ER~Bk~ - ER~Ak~) 
+  
+Upper bound(?) of interval representing Risk Class as identified by scenario *k*
+
+  + Z~k~ = (ER~Bk~ - ER~Ak~) / (SE~B~ - SE~A~)
+
+\newpage
+
+### Next Steps
+
+  + Adding camp/district data to weather information to identify the geographic zones that were affected
+  + combine releveant 2019 cleaning sections into Risk .do file for a single cleaning file?
+  + identify any other weather variables that are of interest
+  + add fatalism descriptives
+  + identify the outcome variables for intention of input usage
+  + Correlations - flow chart visual + correlations between flow chart boxes
+  
+### Correlations
+
+#### Variables/Data Frame for analysis
+
+When faced with creating a variable to use in analysis from the orignial rainfall events question (rainfall_events) I created binary variables that indicated if a respondent had reported experiened *at least* the given rainfall category.  This was done because most reported experiencing multiple rainfall categories and parsing that out any other way wasnt obvious to me.  For analysis, I am omitting "warm periods".  "Correlations" between the binary variables created to indicate experiencing one of these weather events and aspirations requires simple regressions (ANOVA also used because???).  
+
+Additionally, to measure past aspirations, we ask how current aspirations compare to aspiraitons 3 years ago.  Respondents were first asked whether their aspirtions for the future have or have not changed in the last 3 years.  Those who respondended no have been coded as 0 (no change) in the next question, which asks how their aspirations have changed.  This categorical variable also requires manipulation before testing correlation.  Recoding such that 0 = "The Same", 1 = "Lower" and 2 = "Higher".  0 will be omitted for analyis.  It is important to note that these changes have only been made for changes in aspirations related to land and assets.  Livestock poses an issue, as not everyone in our sample owns livestock and  ~1/3 of the sample left the question related to a change in aspirations for livestock unasnwered.  **Livestock NAs remain unaddress
+
+**Ignore the following** - *There is a question related to the prevalence of livestock in the respondents village (people_livestock).  This measurement could be used to seperate those who reported no change in aspirations for livestock because they do not own/wish to own livestock from those who reported no change because their aspirations for livestock have not changed.  A distinction is made between those who report some change in aspirations AND live in a village where livestock is important and those who live in a village where livestock is important but left the question related to the change in livestock aspirations unanswered.  This is done to preseve the answers of those in the former group.*
+
+Does it make sense to correlate this measurement of whether aspirations are higher/lower/unchanged with weather events experienced this year?   
+
+Feedback on this process is appreciated
+
+  + Aspirations aggregates and aspirations gaps
+
+
+*******************************************************************************************************************************************************************************************
+
+Current Plan:
+- restandardize according to Kossac
+- recreate aspirations index with new standarization method and proper weighting
+- descriptive to include aspiraitons by gender, educ
+- descriptive of aspiration weights
+- rethink regression approach:
+  - asirations ~ shock CROSS TAB (considering shock is categorical - average of continuous variable by the categorical variable)
+    - aggregate shock variable to use as mai shock indicator
+  - use of ag inputs ~ aspirations (again CROSS TAB as it is categorical ~ continuous)
+  - mapping?
+  
+*****************************************************************************************************************************************************************************************
+
+
+
+```{r var-creation.asp, echo=FALSE}
+#Variable creation - aspirations, magnitude of aspirations gap, and change in aspirations
+
+# standardize each dimension at province level
+## interpretation = number of standard deviations from the province average (above or below)
+
+HICPS_2019 = HICPS_2019 %>%
+  group_by(province) %>%
+  mutate(norm_land.aspirations = (rank_land_10 - mean(rank_land_10, na.rm = T)) / sd(rank_land_10, na.rm = T)) %>%
+  mutate(norm_livestock.aspirations = (rank_livestock_10 - mean(rank_livestock_10, na.rm = T)) / sd(rank_livestock_10, na.rm = T)) %>%
+  mutate(norm_asset.aspirations = (rank_asset_10 - mean(rank_asset, na.rm = T)) / sd(rank_asset, na.rm = T))
+
+# recoding weights (importance_)
+HICPS_2019$recode_importance.assets = dplyr::recode(HICPS_2019$importance_assets, '3'=5, '4'=4, '5'=3, '6'=2, '7'=1, .missing = 1)
+HICPS_2019$recode_importance.land = dplyr::recode(HICPS_2019$importance_land, '3'=5, '4'=4, '5'=3, '6'=2, '7'=1, .missing = 1)
+HICPS_2019$recode_importance.livestock = dplyr::recode(HICPS_2019$importance_livestock, '3'=5, '4'=4, '5'=3, '6'=2, '7'=1, .missing = 1)
+
+# weighting standardized dimensions
+HICPS_2019 = HICPS_2019 %>%
+  mutate(weighted_norm_land.aspirations = norm_land.aspirations * recode_importance.land) %>%
+  mutate(weighted_norm_livestock.aspirations = norm_livestock.aspirations * recode_importance.livestock) %>%
+  mutate(weighted_norm_asset.aspirations = norm_asset.aspirations * recode_importance.assets)
+
+ggplot(data = HICPS_2019, aes(weighted_norm_land.aspirations)) +
+  geom_histogram() +
+  facet_wrap(HICPS_2019$province)
+
+# aggregate
+HICPS_2019 = HICPS_2019 %>%
+  mutate(aspirations_level = weighted_norm_land.aspirations + weighted_norm_livestock.aspirations + weighted_norm_asset.aspirations)
+
+```
+
+```{r corr-var-creation.aspirations-change}
+## How has the expectation for dimension ownership in 10 years has changed in the last 3 years?
+## 1 = Higher, 4 = Lower, 0 = No Change - evidenced by a 0 or No in the change_exp_ question (have your aspirations changed in the last 3 years)
+
+
+## addressing any NAs present in change_exp_asset & land to 0 or "No change"
+## 1  NA for both land and assets so no concern over NA replacement skewing data
+HICPS_2019$change_exp_land[is.na(HICPS_2019$change_exp_land)] = 0
+HICPS_2019$change_exp_asset[is.na(HICPS_2019$change_exp_asset)] = 0
+
+## recoding how_exp_ to represent whether a change remained the same (or was higher/lower)
+HICPS_2019$exp_how_land = ifelse(HICPS_2019$change_exp_land == 0, 0, HICPS_2019$exp_how_land)
+HICPS_2019$exp_how_asset = ifelse(HICPS_2019$change_exp_asset == 0, 0, HICPS_2019$exp_how_asset)
+
+# recoding how_exp_ to be ordinal for regressions
+HICPS_2019$exp_how_land = ifelse(HICPS_2019$exp_how_land == 4, 2, HICPS_2019$exp_how_land)
+HICPS_2019$exp_how_asset = ifelse(HICPS_2019$exp_how_asset == 4, 2, HICPS_2019$exp_how_asset)
+
+
+
+
+## concern over the NAs present in change_exp_livestock as they represent those with no livestock...
+## technically their aspirations for livestock have not changed, but they also didnt exist to begin with..
+# people_livestock == 0 = No
+
+# replace 1 NA to "No"
+HICPS_2019$people_livestock[is.na(HICPS_2019$people_livestock)] = 0
+
+# if livestock is not important in respondent village, change in aspirations remains NA
+## THIS ACCOUNTS FOR 370 OF THE 371 NAs
+# if livestock is important in village, change in aspirations becomes 0 if reported change is NA
+HICPS_2019$change_exp_livestock = ifelse(HICPS_2019$people_livestock == 1 & is.na(HICPS_2019$change_exp_livestock), 0, HICPS_2019$change_exp_livestock)
+
+```
+
+```{r corr-creation.dataframe}
+## merging weather dataset with relevant aspirations (and eventually risk and input decisions)
+corr_df = bind_cols(weather_2019, select(HICPS_2019, exp_how_livestock, exp_how_land, exp_how_asset, aspirations_aggregate, aspirations_aggregate_nolivestock, land_asp_gap, livestock_asp_gap, asset_asp_gap, aggregate_asp_gap, aggregate_asp_gap_nolivestock, rank_land_10, rank_livestock_10, rank_asset_10, land_asp_gap, livestock_asp_gap, asset_asp_gap))
+
+#total number of rainfall events experienced in 2018-2019
+attach(corr_df)
+corr_df$num_rainfall_events = late_rain + dry_spell + low_seasonal_rain + warm_temps + flooding
+corr_df$num_rainfall_events = as.factor(corr_df$num_rainfall_events)
+
+# how likely a house is to be prepared for a drought
+#4 = "I dont know"
+corr_df$prepared = ifelse(prepared == 4, NA, prepared)
+detach(corr_df)
+
+# categorize rainfall characterizaitons and relevel
+# create categorical variable out of rainfall characteriziations - set Average as reference year
+# 1 - Severe drought 2 - Moderate drought 3 - Average 4 - Above Average 5 - Too Much
+corr_df$rainfall_19 = relevel(as.factor(corr_df$rainfall_19), ref = 3) 
+
+#11-never experienced a drought
+#1 - every year
+#2 = every other
+#3-9 - every other n years
+#10 - once every 10 years or less
+corr_df$droughtfreq = relevel(as.factor(corr_df$droughtfreq), ref = 11)
+```
+
+Necessary to check distributions of different variables to see which method of correlation testing I should use
+
+```{distribution-corr_df, r}
+#aggregate aspirations
+hist(corr_df$aspirations_aggregate)
+hist(corr_df$aspirations_aggregate_nolivestock)
+
+#aspirations gap
+hist(corr_df$land_asp_gap)
+hist(corr_df$livestock_asp_gap)
+hist(corr_df$asset_asp_gap)
+hist(corr_df$aggregate_asp_gap)
+hist(corr_df$aggregate_asp_gap_nolivestock)
+
+#reported change in aspirations in the last 3 years
+table(corr_df$exp_how_asset)
+table(corr_df$exp_how_land)
+table(corr_df$exp_how_livestock)
+```
+
+Correlation between various weather measurements and aspirations gap
+**'warm_temps' omitted**
+
+Notable discoveries: experiencing low seasonal rain is associated with lower aggregated aspirations but the relationship disappears when we remove aspirations for livestock.  This story is continued when we break down aspirations by specific dimension.  Aspirations for land and assets are not associated with experiencing a weather event, but aspirations for livestock is lower in those who experienced both late and low seasonal rainfall
+
+```{r corr-weather-events.aspriations}
+# level of aspiration for the future - aggregated against weather events
+summary(lm(data = corr_df, aspirations_aggregate ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+summary(lm(data = corr_df, aspirations_aggregate_nolivestock ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+
+# level of aspirations for the future - specific dimensions against weather events
+summary(lm(data = corr_df, rank_land_10 ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+summary(lm(data = corr_df, rank_livestock_10 ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+summary(lm(data = corr_df, rank_asset_10  ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+
+# level of aspirations with the characterization of rainfall for 18-19 growing season
+# 1 - Severe drought 2 - Moderate drought 3 - Average 4 - Above Average 5 - Too Much
+summary(lm(aspirations_aggregate ~ rainfall_19, data = corr_df))
+summary(lm(aspirations_aggregate_nolivestock ~ rainfall_19, data = corr_df))
+
+# level of aspirations for the futre - specific dimensions with characterization of rainfall
+summary(lm(rank_land_10 ~ rainfall_19, data = corr_df))
+summary(lm(rank_livestock_10 ~ rainfall_19, data = corr_df))
+summary(lm(rank_land_10 ~ rainfall_19, data = corr_df))
+
+## level of aspirations for the future and seasons effected by drought
+# omitted drought_season.1516
+summary(lm(aspirations_aggregate ~ drought_season.1819 + drought_season.1718 + drought_season.1617, data = corr_df))
+summary(lm(aspirations_aggregate_nolivestock ~ drought_season.1819 + drought_season.1718 + drought_season.1617, data = corr_df))
+
+```
+
+Correlation between various weather measurements and aspirations gap
+**'warm_temps' omitted**
+
+```{r corr-weather-events.aspirations-gap}
+# magnitude of aspirations gap - aggregated
+summary(lm(data = corr_df, aggregate_asp_gap ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+summary(lm(data = corr_df, aggregate_asp_gap_nolivestock ~ dry_spell + late_rain + low_seasonal_rain + flooding))
+
+# magnitude of aspirations gap for specific dimensions against weather events
+
+#magnitude of aspirations gap - rainfall characterization
+summary(lm(aggregate_asp_gap ~ rainfall_19, data = corr_df))
+summary(lm(aggregate_asp_gap_nolivestock ~ rainfall_19, data = corr_df))
+
+# magnitude of aspiration gap for specific dimensions against rainfaill characterization
+summary(lm(land_asp_gap ~ rainfall_19, data = corr_df))
+summary(lm(asset_asp_gap ~ rainfall_19, data = corr_df))
+summary(lm(land_asp_gap ~ rainfall_19, data = corr_df))
+```
+
+relationship between change in aspirations with actual aspirations doesnt really make sense... how to use change (exp_how_dim) in correlations... 
+
+```{r}
+#0 - no change 1 - higher 2 - lower
+# aspirations against the reported change in aspirations compared to 3 years ago
+# 0 - no change omitted
+corr_df$exp_how_land = as.factor(corr_df$exp_how_land)
+corr_df$exp_how_asset = as.factor(corr_df$exp_how_asset)
+corr_df$exp_how_livestock = as.factor(corr_df$exp_how_livestock)
+
+
+summary(lm(aspirations_aggregate ~ exp_how_land, data = corr_df))
+summary(lm(aspirations_aggregate_nolivestock ~ exp_how_asset, corr_df))
+summary(lm(aspirations_aggregate_nolivestock ~ exp_how_livestock, corr_df))
+
+
+```
+
+
+
+
+```{r corr-, echo=FALSE}
+attach(corr_df)
+
+## rainfall 
+# how would you characterize the rainfall in 18-19
+# 1 severe drought - 5 too much
+cor(rainfall_19, aspirations_aggregate, use = "complete.obs")
+cor(rainfall_19, aspirations_aggregate_nolivestock, use = "complete.obs")
+
+# drought intensity
+# how long the longest dry spell in 18-19 lasted
+cor(droughtint, aspirations_aggregate, use = "complete.obs")
+cor(droughtint, aspirations_aggregate_nolivestock, use = "complete.obs")
+
+#preparation against aspirations
+cor(prepared, aspirations_aggregate, use = "complete.obs")
+cor(prepared, aspirations_aggregate_nolivestock, use = "complete.obs")
+
+## number of weather events occured against aspirations
+cor(num_rainfall_events, aspirations_aggregate, use = "complete.obs")
+cor(num_rainfall_events, aspirations_aggregate_nolivestock, use = "complete.obs")
+
+## Individual dimensions against specific weather events
+cor(late_rain, rank_land_10, use = "complete.obs")
+
+## Aspiration Gap - magnitude of the difference between current and desired levels
+# aggregates against specific weather events
+cor(late_rain, aggregate_asp_gap, use = "complete.obs")
+cor(late_rain, aggregate_asp_gap_nolivestock, use = "complete.obs")
+
+cor(dry_spell, aggregate_asp_gap, use = "complete.obs")
+cor(dry_spell, aggregate_asp_gap_nolivestock, use = "complete.obs")
+
+cor(low_seasonal_rain, aggregate_asp_gap, use = "complete.obs")
+cor(low_seasonal_rain, aggregate_asp_gap_nolivestock, use = "complete.obs")
+
+cor(warm_temps, aggregate_asp_gap, use = "complete.obs")
+cor(warm_temps, aggregate_asp_gap_nolivestock, use = "complete.obs")
+
+cor(flooding, aggregate_asp_gap, use = "complete.obs")
+cor(flooding, aggregate_asp_gap_nolivestock, use = "complete.obs")
+
+# drought intensities
+cor(droughtint, aggregate_asp_gap, use = "complete.obs")
+cor(droughtint, aggregate_asp_gap_nolivestock, use = "complete.obs")
+
+#aspirations gap and preparation
+cor(prepared, aggregate_asp_gap, use = "complete.obs")
+cor(prepared, aggregate_asp_gap_nolivestock, use = "complete.obs", method = "s")
+
+#number of weather events 
+cor(num_rainfall_events, aggregate_asp_gap, use = "complete.obs", method = "s")
+cor(num_rainfall_events, aggregate_asp_gap_nolivestock, use = "complete.obs", method = "s")
+
+detach(corr_df)
+```
+

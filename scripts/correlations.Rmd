@@ -1,0 +1,676 @@
+---
+title: "correlations"
+author: "Adam Kurczewski"
+date: "1/30/2020"
+output: pdf_document
+---
+
+```{r packages, echo=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(haven)
+library(ggplot2)
+library(knitr)
+library(xtable)
+library(dummies)
+
+setwd("C:/Users/kurczew2/Box/Research/HICPS/")
+```
+
+```{r data.load, echo=FALSE}
+HICPS_RISK <- read_dta("C:/Users/kurczew2/Box/Research/HICPS/HICPS_RISK.dta")
+X2019_HICPS_Follow_up <- read_dta("C:/Users/kurczew2/Box/Research/HICPS/2019 HICPS Follow-up.dta")
+
+#HICPS = HICPS_all
+
+MasterHICPS_RISK = read_dta("C:/Users/kurczew2/Box/Research/HICPS/HICPS_RISK.dta")
+
+HICPS_2019 = MasterHICPS_RISK %>%
+  filter(year == 2019)
+```
+
+*******************************************************************************************************************************************************
+
+Current Draft:
+
+- ~~restandardize aspirations according to Kossac~~ 
+- ~~recreate aspirations index with new standarization method and proper weighting~~
+- ~~descriptive to include aspirations by gender, educ, age, income, farmsize~~
+- ~~descriptive of aspiration weights~~
+- write up descriptives
+- rethink regression approach:
+  - aspirations ~ shock CROSS TAB (considering shock is categorical - average of continuous variable by the categorical variable)
+    - aggregate shock variable to use as main shock indicator
+  - use of ag inputs ~ aspirations
+- write up correlation
+- ~~Risk Z score calculation and connecting individual risk coefficient S to Z score intervals~~
+  
+*******************************************************************************************************************************************************
+Next Steps:
+
+  + write up aspirations ~ rainfall correlation now that average is included
+  + visualizations (asp by age, asp by gender, asp by income)
+  + regression table, rather than correlation matrix, for household characteristics correlations to address formatting issues.
+
+Comments welcome for additional variables to select for descriptive/correlation sections.  Also, anticipating potential problems with variable selection for input usage indicator.  Finally, comments regarding risk coefficient z score calculation and interpretation  are welcome (more detailed explanation of issue in Risk section). 
+
+*******************************************************************************************************************************************
+
+##### Aspirations Normalization and Aggregation:
+
+* Each dimension of aspirations (land, livestock, assets) was normalized by removing the mean from the individual's aspired level of the dimension and dividing by the standard deviation of aspirations for that dimension. $$\frac{A_{iD} - \overline{A_D}}{\sigma_D}$$
+  + $A_{iD}$ - Aspired level of dimension $D$ for individual $i$
+  + $\overline{A_D}$ - Average aspired level of dimension $D$
+  + $\sigma_D$ - standard deviation of aspirations for dimension $D$
+  
+* Standardized aspirations were then weighted according to indivual's response to Q26.2 of survey instrument where respondents awareded importance levels to certain life dimensions.  Respondents could rate each dimension on a 5 level likert scale from not important to very important.  Weights for the aspirations dimensions land ownership, livestock ownership, and assets were derived from these answers.  ("Very important" recieved a 5x while "Not important" recieved 1x - **should this be 5x or +5 or does it not matter at all?**)
+  
+* NAs present in the aspiration dimensions were replaced with 0 - no recorded aspirations is no different than not having any aspirations for a given dimension
+
+* Normalized and weighted aspirations dimensions were then aggregated to create an aspirations index.
+
+
+```{r asp-weights.aggregation, echo=FALSE, warning=FALSE, message=FALSE}
+#Variable creation - aspirations
+
+# standardize each dimension at province level
+## interpretation = number of standard deviations from the province average (above or below)
+
+HICPS_2019 = HICPS_2019 %>%
+  group_by(province) %>%
+  mutate(norm_land.aspirations = (rank_land_10 - mean(rank_land_10, na.rm = T)) / sd(rank_land_10, na.rm = T)) %>%
+  mutate(norm_livestock.aspirations = (rank_livestock_10 - mean(rank_livestock_10, na.rm = T)) / sd(rank_livestock_10, na.rm = T)) %>%
+  mutate(norm_asset.aspirations = (rank_asset_10 - mean(rank_asset, na.rm = T)) / sd(rank_asset, na.rm = T))
+
+# recoding weights (importance_)
+HICPS_2019$recode_importance.assets = dplyr::recode(HICPS_2019$importance_assets, '3'=5, '4'=4, '5'=3, '6'=2, '7'=1, .missing = 1)
+HICPS_2019$importance_assets[is.na(HICPS_2019$importance_assets)] = 1
+HICPS_2019$recode_importance.land = dplyr::recode(HICPS_2019$importance_land, '3'=5, '4'=4, '5'=3, '6'=2, '7'=1, .missing = 1)
+HICPS_2019$importance_land[is.na(HICPS_2019$importance_land)] = 1
+HICPS_2019$recode_importance.livestock = dplyr::recode(HICPS_2019$importance_livestock, '3'=5, '4'=4, '5'=3, '6'=2, '7'=1, .missing = 1)
+HICPS_2019$importance_livestock[is.na(HICPS_2019$importance_livestock)] = 1
+
+# weighting standardized dimensions
+HICPS_2019 = HICPS_2019 %>%
+  mutate(weighted_norm_land.aspirations = norm_land.aspirations * recode_importance.land) %>%
+  mutate(weighted_norm_livestock.aspirations = norm_livestock.aspirations * recode_importance.livestock) %>%
+  mutate(weighted_norm_asset.aspirations = norm_asset.aspirations * recode_importance.assets)
+
+# NA aspirations to 0
+## no recoreded aspirations is the same as not having aspiaitons for a particular dimension
+HICPS_2019$weighted_norm_livestock.aspirations[is.na(HICPS_2019$weighted_norm_livestock.aspirations)] = 0
+HICPS_2019$weighted_norm_land.aspirations[is.na(HICPS_2019$weighted_norm_land.aspirations)] = 0
+HICPS_2019$weighted_norm_asset.aspirations[is.na(HICPS_2019$weighted_norm_asset.aspirations)] = 0
+
+# aggregate
+HICPS_2019 = HICPS_2019 %>%
+  mutate(aspirations_level = weighted_norm_land.aspirations + weighted_norm_livestock.aspirations + weighted_norm_asset.aspirations)
+
+```
+
+```{r aspirations.table, message=FALSE }
+
+# Aspirations and Weights
+HICPS_2019$rank_land_10[is.na(HICPS_2019$rank_land_10)] = 0
+HICPS_2019$rank_livestock_10[is.na(HICPS_2019$rank_livestock_10)] = 0
+HICPS_2019$rank_asset_10[is.na(HICPS_2019$rank_asset_10)] = 0
+
+asp_vars.df = select(HICPS_2019, importance_assets, importance_land, importance_livestock,
+                  rank_asset_10, rank_land_10, rank_livestock_10, aspirations_level)
+
+asp_vars.rownames = c("Asset Weight", "Land Weight", "Livestock Weight",
+                      "Asset Aspirations", "Land Aspirations", "Livestock Apsirations",
+                      "Aspirations Level")
+
+asp_var.samplemeans = c(mean(asp_vars.df$importance_assets), 
+                        mean(asp_vars.df$importance_land),
+                        mean(asp_vars.df$importance_livestock),
+                        mean(asp_vars.df$rank_asset_10),
+                        mean(asp_vars.df$rank_land_10),
+                        mean(asp_vars.df$rank_livestock_10),
+                        mean(asp_vars.df$aspirations_level))
+
+
+
+asp_vars.table = data.frame(sapply(split(asp_vars.df[-1], asp_vars.df[1])
+                                            , colMeans),
+                               "Sample" = asp_var.samplemeans,
+                               row.names = asp_vars.rownames)
+
+kable(asp_vars.table,
+      col.names = c("Central", "Copperbelt", 
+                    "Eastern", "Northern", "Northwestern",
+                    "Southern", "Sample"),
+      digits = 2)
+
+# Provincial standard deviations of aspirations variables
+#ddply(asp_vars, .(province), colwise(sd))
+```
+
+```{r asp.visual, warning=FALSE, message=FALSE}
+# standardized aspirations distributions by province
+ggplot(data = HICPS_2019, aes(weighted_norm_land.aspirations)) +
+  geom_histogram() +
+  facet_wrap(factor(HICPS_2019$province,
+                    labels = c("Central", "Copperbelt", "Eastern",
+                               "Northern", "Northwestern", "Southern")),
+             labeller = 'label_value') +
+  labs(title = "Aspiration Levels by Province",
+       x = "Weighted and Normalized Aspirations Level",
+       y = "Frequency")
+```
+
+* Discussion
+
+  + Aspirations levels in the Copperbelt and the Northwestern provinces are noticably higher than others.  Aspirations levels represent the aggregate normalized scores, where as individual dimensions represent the raw, unnormalized aspirations for each province.  Across the individual dimensions, asset aspirations are higher than the sample average.  Interestingly neither province weighs aspirations particularly high.  A next step idea would be to add correlations between aspirations and weights for the dimensions
+
+\newpage
+##### Correlations and Descriptives
+
+* Descriptive Tables
+
+```{r descriptive, message=FALSE}
+
+##cleaning/creation
+HICPS_2019$ind_risk.coeff = HICPS_2019$s_n_hat
+HICPS_2019$province = as.factor(HICPS_2019$province)
+options(scipen = 999)
+
+#outlier replacement for income
+
+HICPS_2019$income[HICPS_2019$income > 150000] = median(HICPS_2019$income)
+
+## Averages for descriptive and aspirations
+
+# Descriptives
+desc_vars.df = select(HICPS_2019, "hh_head_age", "hh_head_sex", "hh_head_edu", "income",
+                      "farmland","ind_risk.coeff")
+
+desc_vars.table = round(sapply(split(desc_vars.df[-1], desc_vars.df[1]), colMeans),2)
+desc_vars.rownames = c("Age", "Sex", "Education",
+                       "Income", "Farmland", "Risk Coefficient")
+
+desc_vars.table[1,] = as.integer(round(desc_vars.table[1,]))
+desc_vars.table[4,] = as.integer(round(desc_vars.table[4,]))
+
+desc_vars.samplemeans = c(round(mean(desc_vars.df$hh_head_age)),
+                          round(mean(desc_vars.df$hh_head_sex),2),
+                          round(mean(desc_vars.df$hh_head_edu),2),
+                          round(mean(desc_vars.df$income)),
+                          round(mean(desc_vars.df$farmland),2),
+                          round(mean(desc_vars.df$ind_risk.coeff),2))
+                                     
+
+kable(
+  data.frame("Central" = as.character(desc_vars.table[,1]),
+           "Copperbelt" = as.character(desc_vars.table[,2]),
+           "Eastern" = as.character(desc_vars.table[,3]), 
+           "Northern" = as.character(desc_vars.table[,4]), 
+           "Northwestern" = as.character(desc_vars.table[,5]), 
+           "Southern" = as.character(desc_vars.table[,6]),
+            "Sample" = as.character(desc_vars.samplemeans),
+           row.names = desc_vars.rownames),
+  align = "r")
+
+```
+
+* Descriptive Discussion:
+
+  + Income in the copperbelt is higher than other provinces, while in the Northern and Eastern provinces incomes are much lower than the sample average.  Also, risk aversion coeffficients are lower in those provinces.  Carried out in the correlation table that follows where higher income is associated with a higher risk aversion score.
+  + Suggestions welcome for additional variables that may be of interest. Potential other variables to include in descriptives: hh size, education of spouse, some index of current asset ownership (as derived from questions in section 9 regarding specific items owned), current livestock ownership index (similar to asset index proposed), expenditure (Q9.29-9.33).  
+  + Food security and dietary diversity metrics from section 10 as their own table
+  
+  
+* Coefficient table
+
+```{r corr.table-function, echo=F, warning=FALSE, message=FALSE}
+
+# function to produce table with sig. stars as well as correlation coefficients
+
+#Table with sig. values attached
+corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
+                     result=c("none", "html", "latex")){
+    #Compute correlation matrix
+    require(Hmisc)
+    x <- as.matrix(x)
+    correlation_matrix<-rcorr(x, type=method[1])
+    R <- correlation_matrix$r # Matrix of correlation coeficients
+    p <- correlation_matrix$P # Matrix of p-value 
+    
+    ## Define notions for significance levels; spacing is important.
+    mystars <- ifelse(p < .0001, "****", ifelse(p < .001, "*** ", ifelse(p < .01, "**  ", ifelse(p < .05, "*   ", "    "))))
+    
+    ## trunctuate the correlation matrix to two decimal
+    R <- format(round(cbind(rep(-1.11, ncol(x)), R), 2))[,-1]
+    
+    ## build a new matrix that includes the correlations with their apropriate stars
+    Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x))
+    diag(Rnew) <- paste(diag(R), " ", sep="")
+    rownames(Rnew) <- colnames(x)
+    colnames(Rnew) <- paste(colnames(x), "", sep="")
+    
+    ## remove upper triangle of correlation matrix
+    if(removeTriangle[1]=="upper"){
+      Rnew <- as.matrix(Rnew)
+      Rnew[upper.tri(Rnew, diag = TRUE)] <- ""
+      Rnew <- as.data.frame(Rnew)
+    }
+    
+    ## remove lower triangle of correlation matrix
+    else if(removeTriangle[1]=="lower"){
+      Rnew <- as.matrix(Rnew)
+      Rnew[lower.tri(Rnew, diag = TRUE)] <- ""
+      Rnew <- as.data.frame(Rnew)
+    }
+    
+    ## remove last column and return the correlation matrix
+    Rnew <- cbind(Rnew[1:length(Rnew)-1])
+    if (result[1]=="none") return(Rnew)
+    else{
+      if(result[1]=="html") print(xtable(Rnew), type="html")
+      else print(xtable(Rnew), type="latex") 
+    }
+} 
+```
+
+```{r corr.variables, warning=FALSE, message=FALSE}
+
+
+## kitchen sink of correlations
+
+corr_vars = select(HICPS_2019, "aspirations_level", "rank_asset_10", "rank_livestock_10",
+                   "ind_risk.coeff", "hh_head_age", "hh_head_edu", 
+                   "farmland", "income", contains("province_"))
+
+
+#table
+## working on formatting issue..
+kable(corstars(corr_vars[-1]))
+
+#kable(corstars(corr_vars.sink))
+
+#review sig. values
+#corr_table.sig
+```
+
+* Correlations between household characteristics and aspirations:
+
+  + Aspirations for both assets and livestock were positiveley influenced by farmland and income.  Additionaly both had possitive association with an individuals risk coefficient.  The more risk averse an individual was the higher their aspirations appear to be.  Finally, more education is correlated with higher aspirations for assets.  Other than farmland and income, aspiraitons for land were not influenced by household characteristics 
+
+
+Correlation between weather events and aspirations
+```{r weather.dummies, echo=FALSE}
+
+# Shock Variables of Interest
+# rainfall_events = "did you experience any of these in 2019 growing season"
+# rainfall_19 - "how would you characterize the rainfall in 2019 GS"
+## 1 severe drought 3 average 5 too much
+
+
+# dummys for severe weather events  effecting 2018-2019 growing season
+## 1
+HICPS_2019$late_rain = ifelse(grepl("[1]", HICPS_2019$rainfall_events), 1, 0)
+## 2
+HICPS_2019$dry_spell = ifelse(grepl("[2]", HICPS_2019$rainfall_events), 1, 0)
+## 3
+HICPS_2019$low_seasonal_rain = ifelse(grepl("[3]", HICPS_2019$rainfall_events), 1, 0)
+## 4
+HICPS_2019$warm_temps = ifelse(grepl("[4]", HICPS_2019$rainfall_events), 1, 0)
+## 5
+HICPS_2019$flooding = ifelse(grepl("[5]", HICPS_2019$rainfall_events), 1, 0)
+## 6
+HICPS_2019$rainfall_other = ifelse(grepl("[6]", HICPS_2019$rainfall_events), 1, 0)
+```
+```{r corr-weather.asp, message=FALSE, warning=FALSE}
+
+## aspiration levels and dimensions by rainfall events
+
+#Aspirations of those who reported average rainfall characterization in 2019 GS
+asp_average.rain = HICPS_2019 %>%
+  filter(rainfall_19 == 3) %>%
+  #ungroup if we want sample average, remove this code for 
+  #mean aspirations of respondents with average rainfall by province
+  ungroup() %>%
+  summarise(Land_Asp = mean(rank_land_10),
+            Livestock_Asp = mean(rank_livestock_10),
+            Asset_Asp = mean(rank_asset_10),
+            Aspirations = mean(aspirations_level))
+
+#late rains
+asp_late.rain = HICPS_2019 %>%
+  filter(late_rain == 1) %>%
+  ungroup() %>%
+  summarise(Land_Asp = mean(rank_land_10), Livestock_Asp = mean(rank_livestock_10),
+            Asset_Asp = mean(rank_asset_10), Aspirations = mean(aspirations_level))
+
+#dry spells
+asp_dry.spell = HICPS_2019 %>%
+  filter(dry_spell == 1) %>%
+  ungroup() %>%
+  summarise(Land_Asp = mean(rank_land_10), Livestock_Asp = mean(rank_livestock_10),
+            Asset_Asp = mean(rank_asset_10), Aspirations = mean(aspirations_level))
+
+#low seasonal rainfall
+asp_low.rain = HICPS_2019 %>%
+  filter(low_seasonal_rain == 1) %>%
+  ungroup() %>%
+  summarise(Land_Asp = mean(rank_land_10), Livestock_Asp = mean(rank_livestock_10),
+            Asset_Asp = mean(rank_asset_10), Aspirations = mean(aspirations_level))
+
+#warm temps
+asp_warm.temps = HICPS_2019 %>%
+  filter(warm_temps == 1) %>%
+  ungroup() %>%
+  summarise(Land_Asp = mean(rank_land_10), Livestock_Asp = mean(rank_livestock_10),
+            Asset_Asp = mean(rank_asset_10), Aspirations = mean(aspirations_level))
+
+#flooding
+asp_flood = HICPS_2019 %>%
+  filter(flooding == 1) %>%
+  ungroup() %>%
+  summarise(Land_Asp = mean(rank_land_10), Livestock_Asp = mean(rank_livestock_10),
+            Asset_Asp = mean(rank_asset_10), Aspirations = mean(aspirations_level))
+
+
+asp_weather.table = data.frame(rbind(asp_average.rain, asp_late.rain, asp_dry.spell, asp_low.rain,
+                                     asp_warm.temps, asp_flood),
+           row.names = c("average", "late rain", "dry spells", "low seasonal rainfall",
+                         "warm temps", "flooding"))
+
+kable(asp_weather.table,
+      digits = 2)
+```
+
+  + Experiencing low seasonal rainfall results in lower aggregate aspirations when compared to other rainfall events.  This effect on aspirations overall might be useful in telling the story about weather infuencing input usage via aspirations, since the relationship is not between weather and one specific dimension.  Other relationships exist as more specific to certain dimensions, such as those who experienced flooding seeming to have higher aspirations for land. Perhaps land that is not as flood prone?  Similarly, experiencing late rainfall in 2018-19 growing season is associated with higher aspirations for livestock, perhaps as a form of insurance against late rains reducing crop yields.  
+  + Missing: good variable to use for input usage... still hunting for a variable that indicates liklihood of using inputs next season.  In fact, there isnt a straight forward variable for input usage in the current growing season either, or at least one that isnt tied in with FISP usage (Q20.7)
+
+
+```{r}
+summary(lm(data = HICPS_2019,
+   norm ~ hh_head_sex))
+```
+
+
+##### Visuals:
+```{r eval=FALSE, warning=FALSE, message=FALSE}
+
+#visual of HH characteristics ~ aspirations relationship
+ggplot(data = HICPS_2019, aes(x = hh_head_age, y = aspirations_level)) +
+  geom_point()
+
+ggplot(data = HICPS_2019, aes(x = ind_risk.coeff, y = aspirations_level)) +
+  geom_point()
+
+ggplot(data = HICPS_2019, aes(x = income, y = aspirations_level)) +
+  geom_point()
+
+ggplot(data = HICPS_2019, aes(x = farmland, y = aspirations_level)) +
+  geom_point()
+
+```
+
+
+##### Risk:
+
+  + Binswager: "Z is the trade off between the expected returns and standard deviation of two games"
+  + Z is the difference in ER of game A - ER of game B / SD of A - SD of B
+  + SE calculation needs scrutinizing: currently reflects the variation in yield from a given gamble
+    + there are only two SD calculation because the "high" and "low" yeild options in # of bags is the same for every gamble, averages change
+
+
+Expected Return:
+
+  + method: $[P_{BW}*(Y_{BW}\*50kgs)] + [P_{AW}*(Y_{AW}\*50kgs)] + [P_{WW}*(Y_{WW}\*50kgs)]$
+    + $P_{BW}$ - liklihood of best weather
+    + $P_{AW}$ - liklihood of average weather
+    + $P_{WW}$ - liklihood of worst weather
+    + $Y_{BW}$ - yield from best weather
+    + $Y_{AW}$ - yield from average weather
+    + $Y_{WW}$ - yield from worst weather
+  + various scenarios offer different yields depending on the variety of seed
+  
+
+Approach 1:
+
+  + method: $[P_{BW}*(Y_{BW}\*50kgs)] - [P_{WW}*(Y_{WW}\*50kgs)]$
+  + simplified Best weather yeild - worst weather yield
+    + $P_{BW}$ - liklihood of best weather
+    + $P_{AW}$ - liklihood of average weather
+    + $P_{WW}$ - liklihood of worst weather
+    + $Y_{BW}$ - yield from best weather
+    + $Y_{AW}$ - yield from average weather
+    + $Y_{WW}$ - yield from worst weather
+  
+  + concern: doesnt account for different average weathers associated with the Variety B in the different scenarios
+  
+```{r calculate-newZ, echo=FALSE}
+
+# recalculating the risk class intervals for our experiment specific expected returns
+# Expected Return = (0.1*lower bound of extreme outcome) + (0.5*average weather yield) + (0.1*upper bound of extreme outcome)
+
+ExpectedReturn = function(lower.bound, average, upper.bound) {
+  (0.1*(lower.bound*50)) + (0.5*(average*50)) + (0.1*(upper.bound*50))
+}
+
+## Standard Deviation:
+# Standard Deviation = yield of upper bound of extreme outcome - lower bound
+StandardDev = function(upper.bound, lower.bound) {
+  (0.1*(upper.bound*50)) - (0.1*(lower.bound*50))
+}
+
+
+
+#Expected return for Var A is non changing because the gamble remains constant throughout
+## Variety A:
+ExpectedReturn_VarietyA = ExpectedReturn(lower.bound = 5, average = 6, upper.bound = 7)
+StandardDev_A = StandardDev(7,5)
+
+
+
+## Variety B standard deviation
+StandardDev_B = StandardDev(14,1)
+
+
+## Scenario 1: Risk Lover
+ExpectedReturn_RiskLover = ExpectedReturn(lower.bound = 1, average = 5, upper.bound = 14)
+
+
+## Scenario 2: Risk Neutral
+ExpectedReturn_RiskNeutral = ExpectedReturn(lower.bound = 1, average = 6, upper.bound = 14)
+
+
+## Scenario 3: Risk Averse 1
+ExpectedReturn_RiskAverse_1 = ExpectedReturn(lower.bound =  1,average =  8,upper.bound =  14)
+
+
+## Scenario 4: Risk Averse 2
+ExpectedReturn_RiskAverse_2 = ExpectedReturn(1,10,14)
+
+
+## Z score intervals
+
+# Risk Lovers: game 1
+z_RiskLover = (ExpectedReturn_RiskLover - ExpectedReturn_VarietyA) / (StandardDev_B - StandardDev_A)
+
+
+# Z for Risk Neutral: game 2
+z_RiskNeutral = (ExpectedReturn_RiskNeutral - ExpectedReturn_VarietyA) / (StandardDev_B - StandardDev_A)
+
+
+# Moderate Risk Averse: game 3 
+z_RiskAv1 = (ExpectedReturn_RiskAverse_1 - ExpectedReturn_VarietyA) / (StandardDev_B - StandardDev_A)
+
+
+# Intermediate Risk AVerse: game 4 
+z_RiskAv2 = (ExpectedReturn_RiskAverse_2 - ExpectedReturn_VarietyA) / (StandardDev_B - StandardDev_A)
+
+```
+
+Approach 2:
+
+  + method: $\sqrt\frac{[P_{BW}*(Y_{BW}*50kgs) - P_{AW}*(Y_{AW}*50kgs)]^2 + [P_{WW}*(Y_{WW}*50kgs) - P_{AW}*(Y_{AW}*50kgs)]^2}{2}$
+  +simplified square root of(best weather yeild - avg. yield + worst weather yeild - avg.)^2 / 2
+    + $P_{BW}$ - liklihood of best weather
+    + $P_{AW}$ - liklihood of average weather
+    + $P_{WW}$ - liklihood of worst weather
+    + $Y_{BW}$ - yield from best weather
+    + $Y_{AW}$ - yield from average weather
+    + $Y_{WW}$ - yield from worst weather
+  
+  + problems: variety A yields a higher SD than variety B which is.. wrong.  This points me towards the above method of calculating the standard deviation of a particular gamble.
+  + problems: original SD calculation (above) does not change depending on the scenario as it is just the variance between the best and worst weather yield
+  
+  + Question: What method should be used to calculate the SD of a given gamble - SD to be used in determining the Z score between two games
+  
+  
+|                    |  Approach 1                               |                    Approach 2    |
+|--------------------|-------------------------------------------|----------------------------------|
+| Scenario           |           Variety A / Variety B           |       Variety A / Variety B      |
+| 1 Risk loving      |       10          /              65       |  120.10          /         93.34 |
+| 2 Risk Neutral     |       10           /             65       | 120.10          /         117.10 |
+| 3 Mod. Risk Averse |       10            /            65       | 120.10          /         165.72 |
+| 4 Int. Risk Averse |       10             /           65       | 120.10           /        214.97 |
+
+
+
+```{r}
+#alterate SD calculation
+HomeMadeSD = function(lower.bound, average, upper.bound) {
+  sqrt((((0.1*(upper.bound*50)) - (0.5*(average*50)))**2 + 
+          ((0.1*(lower.bound*50)) - (0.5*(average*50)))**2)/2)
+}
+
+
+## Standard Deviation of Variety A
+## Same throughout games as yields do not change
+HomeSD_A = HomeMadeSD(lower.bound = 5, average = 6, upper.bound = 7)
+
+#SD of Variety B Game 1
+HomeSD_B1 = HomeMadeSD(lower.bound = 1, average = 5, upper.bound = 14)
+
+#SD of Variety B game 2
+HomeSD_B2 = HomeMadeSD(lower.bound = 1, average = 6, upper.bound = 14)
+                       
+#SD of variety b game 3
+HomeSD_B3 = HomeMadeSD(lower.bound = 1, average = 8, upper.bound = 14)
+
+#SD variety b game 4
+HomeSD_B4 = HomeMadeSD(lower.bound = 1, average = 10, upper.bound = 14)
+
+
+
+
+## Z score intervals
+#Risk Lover: game 1
+HomeZ_risklover = (ExpectedReturn_RiskLover - ExpectedReturn_VarietyA) / (HomeSD_B1 - 
+                                                                            HomeSD_A)
+
+#Risk neutral:game 2
+HomeZ_riskneutral = (ExpectedReturn_RiskNeutral - ExpectedReturn_VarietyA) / (HomeSD_B2 - 
+                                                                                HomeSD_A)
+
+# Mod. risk averse: game 3
+HomeZ_riskAV1 = (ExpectedReturn_RiskAverse_1 - ExpectedReturn_VarietyA) / (HomeSD_B3 - 
+                                                                             HomeSD_A)
+
+# Intermediate risk avers: game 4
+HomeZ_riskAV2 = (ExpectedReturn_RiskAverse_2 - ExpectedReturn_VarietyA) / (HomeSD_B4 - 
+                                                                             HomeSD_A)
+```
+
+
+Z Scores:
+
+  + Concerns: approach 2 yields z scores that do not strictly increase as the payoff of Variety B increases relative to Variety A
+  + wouldnt we expect the Z score of a more risk averse individual to be 
+
+|                    |  Z Scores  |            |
+|--------------------|------------|------------|
+| Scenario           | Approach 1 | Approach 2 |
+| 1 Risk loving      |    -0.18   |    0.374   |
+| 2 Risk Neutral     |    0.273   |   -4.994   |
+| 3 Mod. Risk Averse |   1.1818   |    1.425   |
+| 4 Int. Risk Averse |    2.091   |    1.212   |
+
+
+
+```{r risk-graph, echo=FALSE, message=FALSE}
+#Distribution of Risk Aversion Coefficients
+ggplot(HICPS_2019, aes(s_n_hat)) +
+  geom_histogram(color = "black", fill = "white") +
+#  geom_vline(aes(xintercept = 0.273),
+#             linetype = "dashed",
+#             color = "red") +
+#  geom_vline(aes(xintercept = 0),
+#            linetype = "dashed",
+#             color = "red") +
+  labs(title = "Distribution of Risk Coefficient",
+       x = "Risk Coefficient",
+       y = "Frequency") +
+       #caption = "<0 - Risk Loving \n 0-0.273 - Risk Neutral \n 0.273-1.182 - Moderately Risk Averse \n 1.182-2.09 - Intermediate Risk Aversion")
+  theme_grey()
+```
+
+Interpretting Risk Coefficients using Z score intervals
+
+  + Unsure of how to go from Z scores to interpreting individual risk coefficients ($S$)
+
+* Concept:
+  
+  + according to Approach 1 of Z score calculation, risk neutral individuals are within 0-0.27 standard deviation.  Using this guideline, the lower bound of the risk neutral class interval would be $S =  \overline{S}$ while the upper bound would be $S <= 0.27+\overline{S}$.  Individuals with an individual risk coefficient $S$ between this interval would be considered risk neutral.  Subsequent risk class intervals can be calculated as soon as I verify a method for calculating standard deviation of a gamble (and recalculating Z scores).
+
+``` {r risk-table, echo=F, eval=F}
+#Table of proportions
+prop_negative_RiskAversion = round(sum(HICPS_2019$s_n_hat < 0) / sum(!is.na(HICPS_2019$s_n_hat)), digits = 3)
+
+prop_neutral_RiskAversion = round(sum(HICPS_2019$s_n_hat > 0 & HICPS_2019$s_n_hat < z_RiskNeutral) / sum(!is.na(HICPS_2019$s_n_hat)), digits = 3)
+
+prop_moderate_RiskAversion = round(sum(HICPS_2019$s_n_hat > z_RiskNeutral & HICPS_2019$s_n_hat < z_RiskAv1) / sum(!is.na(HICPS_2019$s_n_hat)), digits = 3)
+
+prop_intermediate_RiskAversion = round(sum(HICPS_2019$s_n_hat > z_RiskAv1 & HICPS_2019$s_n_hat < z_RiskAv2) / sum(!is.na(HICPS_2019$s_n_hat)), digits = 3)
+
+prop_severe_RiskAversion = round(sum(HICPS_2019$s_n_hat > z_RiskAv2) / sum(!is.na(HICPS_2019$s_n_hat)), digits = 3)
+
+#absolute counts of observations in different Risk Aversion intervals
+count_negative_RiskAversion = sum(HICPS_2019$s_n_hat < 0)
+count_neutral_RiskAversion = sum(HICPS_2019$s_n_hat > 0 & HICPS_2019$s_n_hat < z_RiskNeutral)
+count_moderate_RiskAversion = sum(HICPS_2019$s_n_hat > z_RiskNeutral & HICPS_2019$s_n_hat < z_RiskAv1)
+count_intermediate_RiskAversion = sum(HICPS_2019$s_n_hat > z_RiskAv1 & HICPS_2019$s_n_hat < z_RiskAv2)
+
+kable(data.frame(risk_aversion_interval = c("<0", "0-0.273", "0.273-1.182", "1.182-2.09", "2.09<"),
+           risk_aversion_level = c("Negative", "Neutral", "Moderate", "Intermediate", "Severe"),
+           risk_aversion_distribution = c(prop_negative_RiskAversion*100, prop_neutral_RiskAversion*100, prop_moderate_RiskAversion*100, prop_intermediate_RiskAversion*100, prop_severe_RiskAversion*100)),
+      col.names = c("Risk Coefficient Intervals", "Risk Aversion Class", "Proportion"),
+      caption = "n = 2992",
+      align = "c")
+```
+
+
+
+Migration:
+
+```{r migration-asp.table}
+table(HICPS_RISK$exp_how_asset)
+
+HICPS_RISK$exp_how_asset = dplyr::recode(HICPS_RISK$exp_how_asset, '4'=0)
+HICPS_RISK$exp_how_land = dplyr::recode(HICPS_RISK$exp_how_land, '4'=0)
+HICPS_RISK$exp_how_livestock = dplyr::recode(HICPS_RISK$exp_how_livestock, '4'=0)
+
+
+HICPS_RISK$mig_2016 = ifelse(HICPS_RISK$year == 2016 & HICPS_RISK$mig1_exist == 1 | HICPS_RISK$mig2_exist == 1, 1, 0)
+HICPS_RISK$mig_2016[is.na(HICPS_RISK$mig_2016)] = 0
+
+mean(HICPS_RISK$mig_2016, na.rm = T)
+
+
+HICPS_RISK %>%
+  filter(year == 2017 & mig1_exist == 1) %>%
+  select(exp_how_asset, exp_how_land, exp_how_livestock)
+  
+```
+ 
+```{r}
+
+```
+
+
