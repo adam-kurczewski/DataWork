@@ -105,12 +105,12 @@ bysort HHID: replace income2 = income2[_n-1] if year > 2016
 
 * 2016 risk aversion coeff.
 gen s_n_hat2 = 0
-replace s_n_hat2 = s_n_hat if year == 2016
+replace s_n_hat2 = s_n_hat if year == 2019
 
 bysort HHID: replace s_n_hat2 = s_n_hat2[_n-1] if year > 2016
 
 
-global controls hh_head_age hh_head_sex hh_head_edu hh_num s_n_hat2 income2 i.district
+global controls hh_head_age hh_head_sex hh_head_edu hh_num income2 i.district
 		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
 
 
@@ -208,15 +208,61 @@ predict severedrought_length_p
 gen drought_logit = drought
 gen drought_probit = drought
 
-* severe drought if predicted value >= mean in 2018?
+** Visuals
+kdensity severedrought_length if drought == 1, ///
+addplot(kdensity severedrought_length if drought == 0) ///
+title(Severe Drought Prediction: Density Plot) ///
+legend(label(1 "Experienced Severe Drought") label(2 "No Severe Drought")) ///
+saving("C:\Users\kurczew2\Box\Research\HICPS\Visuals\preddensity", replace)
+
+*================================================================================*
+*                                 CIRCLE BACK TO THIS							 *
+*================================================================================*
+
+/*
+* finding the crossover point...
+* looking for where the predicted value if drought == 1 - pred. value if drought == 1 = 0...
+kdensity severedrought_length, nograph gen(x d)
+
+kdensity severedrought_length if drought == 1, at(x) nograph gen(f1)
+kdensity severedrought_length if drought == 0, at(x) nograph gen(f0)
+line f1 f0 x
+
+
+
+
+gen sv1 = severedrought_length if drought == 1
+gen sv0 = severedrought_length if drought == 0
+
+bysort HHID: replace sv1 = sv1[_n+1] if sv1 == .
+bysort HHID: replace sv1 = sv1[_n+1] if sv1 == .
+bysort HHID: replace sv1 = sv1[_n+1] if sv1 == .
+bysort HHID: replace sv1 = sv1[_n-1] if sv1 == .
+
+bysort HHID: replace sv0 = sv0[_n+1] if sv0 == .
+bysort HHID: replace sv0 = sv0[_n+1] if sv0 == .
+bysort HHID: replace sv0 = sv0[_n+1] if sv0 == .
+bysort HHID: replace sv0 = sv0[_n-1] if sv0 == .
+
+gen diff = sv1 - sv0
+*/
+
+
+*================================================================================*
+*                                 												 *
+*================================================================================*
+
+sort HHID year
+* severe drought if predicted value >= X & in 2018
 replace drought = 1 if severedrought_length >= 0.5 & year == 2018
-* 46 changes made
+* 225 changes made
 
 replace drought_logit = 1 if severedrought_length_logit >= 0.5 & year == 2018
-* 29 changes made
+* 271 changes made
 
 replace drought_probit = 1 if severedrought_length_p >= 0.5 & year == 2018
-* 15 changes made
+* 267 changes made
+
 
 
 * Summary Table for deciding what level is acceptable for determing 2018 drought status
@@ -314,6 +360,11 @@ gen ag_asp_change = change_livestock + change_land + change_asset
 	
 ***** Results *****
 *xtset district
+
+
+*======= Extra Control Ideas ======*
+* s_n_hat2
+
 
 **** Shock: number of droughts
 
