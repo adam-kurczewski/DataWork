@@ -90,9 +90,6 @@ replace other_rainfall = 1 if rainfall_events1 == 6 | rainfall_events2 == 6 | ra
 
 * controls
 
-*tabulate province, g(provdum)
-
-* need to add more perception variables such as drought_freq etc
 ** need to make sure they are in all years?
 sum income
 replace income = r(mean) if income > 200000
@@ -103,12 +100,14 @@ replace income2 = income if year == 2016
 
 bysort HHID: replace income2 = income2[_n-1] if year > 2016
 
-* 2016 risk aversion coeff.
+
+* 2019 risk aversion coeff.
 gen s_n_hat2 = 0
 replace s_n_hat2 = s_n_hat if year == 2019
 
-bysort HHID: replace s_n_hat2 = s_n_hat2[_n-1] if year > 2016
-
+bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2019
+bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2018
+bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2017
 
 global controls hh_head_age hh_head_sex hh_head_edu hh_num income2 i.district
 		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
@@ -308,22 +307,7 @@ gen drought_2years = 0
 replace drought_2years = 1 if n_drought >= 2
 
 
-*** Reg cleaning ***
 
-keep if year == 2019
-
-sum daysdrought, d
-replace daysdrought = r(mean) if daysdrought == .
-
-* replacing with "other", need to revist this...
-replace rains_reasons = 8 if rains_reasons == .
-*===============================================*
-
-sum prepared
-replace prepared = r(mean) if prepared == .
-
-sum zaspirations
-replace zaspirations = r(mean) if zaspirations == .
 
 
 /*
@@ -337,7 +321,6 @@ gen change_livestock = .
 replace change_livestock = -1 if exp_how_livestock == 0
 replace change_livestock = 0 if change_exp_livestock == 0
 replace change_livestock = 1 if exp_how_livestock == 1
-
 
 gen change_land = .
 replace change_land = -1 if exp_how_land == 0
@@ -363,36 +346,126 @@ gen ag_asp_change = change_livestock + change_land + change_asset
 
 
 *======= Extra Control Ideas ======*
-* s_n_hat2
+* s_n_hat2 - 2019 risk aversion coefficient
+* prepared - how likely are you to be prepared for drought
+* daysdrought - how many days without rain is a drought
+* rains - prediciton of rains next season
+* forecast_rain - condifence in prediction (from rains)
+* droughtfreq - how often HH experiences a drought
+* droughtint - length of dry spell in 2019 growing season
+* daysnorain - how many days without rain is harmful to maize
+* daysdrought - how many days without rain does HH consider a drought
+* ~latearrival~ - how many weeks late did rains arrive - TOO MANY MISSING DATA
+
+*===========* Control Var Cleaning *===========*
+
+sum prepared
+replace prepared = r(mean) if prepared == . & year == 2019
+
+sum daysdrought, d
+replace daysdrought = r(mean) if daysdrought == .
+
+sum rains if year == 2019
+
+sum forecast_rain if year == 2019
+replace forecast_rain = r(mean) if forecast_rain == . & year == 2019
+
+sum droughtfreq if year == 2019
+replace droughtfreq = r(mean) if droughtfreq == . & year == 2019
+
+sum droughtint if year == 2019
+
+sum daysnorain if year == 2019
+bysort HHID: replace daysnorain = daysnorain[_n-1] if year > 2018
+replace daysnorain = r(mean) if daysnorain == . & year == 2019
+
+sum daysdrought if year == 2019
+
+
+* Additional Control Global Var
+global controlX s_n_hat2 prepared daysdrought rains droughtfreq droughtint
+
+*===============================================*
+
 
 
 **** Shock: number of droughts
 
-*** aspirations: levels
+ keep if year == 2019
+ 
+*** aspirations: levels ***
 
-** w/o livestock
+** w/o livestock **
 reg zaspirations_nolivestock n_drought $controls, base
-eststo aspnolive
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASP.doc", replace ctitle(No Livestock) ///
+keep(n_drought hh_head_age hh_head_sex hh_head_edu hh_num income2) addtext(District FE, YES)
+*eststo aspnolive
 
-** w/ livestock
+** w/ livestock **
 reg zaspirations n_drought $controls, base
-eststo aspwlive
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASP.doc", append ctitle(All Dimensions) ///
+keep(n_drought hh_head_age hh_head_sex hh_head_edu hh_num income2) addtext(District FE, YES)
+*eststo aspwlive
 
-** individual dimension outcomes
+** individual dimension outcomes **
 reg zweighted_aspirations_land n_drought $controls, base
-eststo aspland
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASP.doc", append ctitle(Land) ///
+keep(n_drought hh_head_age hh_head_sex hh_head_edu hh_num income2) addtext(District FE, YES)
+*eststo aspland
+
 reg zweighted_aspirations_livestock n_drought $controls, base
-eststo asplive
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASP.doc", append ctitle(Livestock) ///
+keep(n_drought hh_head_age hh_head_sex hh_head_edu hh_num income2) addtext(District FE, YES)
+*eststo asplive
+
 reg zweighted_aspirations_asset n_drought $controls, base
-eststo aspass
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASP.doc", append ctitle(Assets) ///
+keep(n_drought hh_head_age hh_head_sex hh_head_edu hh_num income2) addtext(District FE, YES)
+*eststo aspass
+
+
+
+*** Adding additional controls ***
+
+** w/o livestock **
+reg zaspirations_nolivestock n_drought $controls $controlX, base
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPcontrol1.doc", replace ctitle(No Livestock) ///
+addtext(District FE, YES)
+*eststo aspnolive
+
+** w/ livestock **
+reg zaspirations n_drought $controls , base
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPcontrol1.doc", append ctitle(All Dimensions) ///
+addtext(District FE, YES)
+*eststo aspwlive
+
+** individual dimension outcomes **
+reg zweighted_aspirations_land n_drought $controls $controlX, base
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPcontrol1.doc", append ctitle(Land) ///
+addtext(District FE, YES)
+*eststo aspland
+
+reg zweighted_aspirations_livestock n_drought $controls $controlX, base
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPcontrol1.doc", append ctitle(Livestock) ///
+addtext(District FE, YES)
+*eststo asplive
+
+reg zweighted_aspirations_asset n_drought $controls $controlX, base
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPcontrol1.doc", append ctitle(Assets) ///
+addtext(District FE, YES)
+*eststo aspass
+
+
 
 *** Aspirations: change
 
 * by dimensions
 reg change_land n_drought $controls
-eststo daspland
+outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregCHANGE.xls", replace ctitle()
+
+*eststo daspland
 reg change_livestock n_drought $controls
-eststo dasplive
+*eststo dasplive
 reg change_land n_drought $controls
 eststo daspass
 
@@ -402,7 +475,7 @@ reg ag_asp_change n_drought $controls
 eststo dagasp
 
 ** output
-esttab aspnolive aspwlive aspland asplive aspass using stataexample1.doc, compress replace
+esttab aspnolive aspwlive aspland asplive aspass using stataexample1.doc, mlabels("No Livestock" compress replace
 
 esttab dagasp daspland dasplive daspass using stataexample2.doc, compress replace
 
