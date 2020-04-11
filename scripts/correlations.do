@@ -189,7 +189,7 @@ gen drought = 0
 replace drought = 1 if rainint ==1
 *cleaning
 summarize droughtint
-replace droughtint = r(mean) if droughtint == . | droughtint < 0
+replace droughtint =  if droughtint == . | droughtint < 0
 
 *prediction
 reg drought droughtint $controls if year != 2018
@@ -338,8 +338,8 @@ replace change_livestock = 0 if change_livestock == .
 gen ag_asp_change = change_livestock + change_land + change_asset
 
 
-	
-	
+save HICPS_predicted, replace
+
 	
 ***** Results *****
 *xtset district
@@ -347,42 +347,58 @@ gen ag_asp_change = change_livestock + change_land + change_asset
 
 *======= Extra Control Ideas ======*
 * s_n_hat2 - 2019 risk aversion coefficient
-* prepared - how likely are you to be prepared for drought
-* daysdrought - how many days without rain is a drought
-* rains - prediciton of rains next season
-* forecast_rain - condifence in prediction (from rains)
-* droughtfreq - how often HH experiences a drought
-* droughtint - length of dry spell in 2019 growing season
-* daysnorain - how many days without rain is harmful to maize
-* daysdrought - how many days without rain does HH consider a drought
-* ~latearrival~ - how many weeks late did rains arrive - TOO MANY MISSING DATA
+* latearrival - Q234: how many weeks late did rains arrive
+* daysnorain - Q235: how many days without rain is harmful to maize
+* daysdrought - Q236: how many days without rain does HH consider a drought
+* droughtint - Q238: length of dry spell in 2019 growing season
+* droughtfreq - Q239: how often HH experiences a drought
+* rains - Q2310: prediciton of rains next season
+* forecast_rain - Q2311: condifence in prediction (from rains)
+* prepared - Q2314: how likely are you to be prepared for drought
+* activities_drought - Q2315: Are there activities you can do to prepare for drought
+* forecast_use - Q242: did you use forecasts in the last growing season
+* forecast_aware -Q243:  are you aware of weather forecasts
+* predict_rains - Q2411: how does your rainfall prediction ability compare to 10 years ago
+
+
 
 *===========* Control Var Cleaning *===========*
+sum latearrival if year == 2019
+replace latearrival = 0 if latearrival == . & year == 2019 & late_rain == 0
+
+sum daysnorain
+bysort HHID: replace daysnorain = daysnorain[_n-1] if year > 2018
+replace daysnorain = r(mean) if daysnorain == . & year == 2019
+
+sum daysdrought
+replace daysdrought = r(mean) if daysdrought == . & year == 2019
+
+sum droughtint
 
 sum prepared
-replace prepared = r(mean) if prepared == . & year == 2019
+replace prepared =  if prepared == .
 
 sum daysdrought, d
-replace daysdrought = r(mean) if daysdrought == .
+replace daysdrought =  if daysdrought == .
 
 sum rains if year == 2019
 
 sum forecast_rain if year == 2019
-replace forecast_rain = r(mean) if forecast_rain == . & year == 2019
+replace forecast_rain =  if forecast_rain == . & year == 2019
 
 sum droughtfreq if year == 2019
-replace droughtfreq = r(mean) if droughtfreq == . & year == 2019
+replace droughtfreq =  if droughtfreq == . & year == 2019
 
-sum droughtint if year == 2019
 
-sum daysnorain if year == 2019
-bysort HHID: replace daysnorain = daysnorain[_n-1] if year > 2018
-replace daysnorain = r(mean) if daysnorain == . & year == 2019
 
-sum daysdrought if year == 2019
+
 
 
 * Additional Control Global Var
+
+keep if year == 2019
+
+
 global controlX s_n_hat2 prepared daysdrought rains droughtfreq droughtint
 
 *===============================================*
@@ -391,7 +407,7 @@ global controlX s_n_hat2 prepared daysdrought rains droughtfreq droughtint
 
 **** Shock: number of droughts
 
- keep if year == 2019
+
  
 *** aspirations: levels ***
 
