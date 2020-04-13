@@ -2,7 +2,7 @@
 clear all
 set more off
 
-cd "C:\Users\nicol\Desktop\UIUC\Baylis\Zambia new\Gowthami"
+cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 use "2016 HICPS.dta", clear
 

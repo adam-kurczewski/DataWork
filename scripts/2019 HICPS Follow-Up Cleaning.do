@@ -2,7 +2,7 @@ clear
 set more off
 
 *** Set appropriate directory pathway for your machine ***
-cd "C:\Users\kurczew2\Box\Research\HICPS"
+cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 use "2019 HICPS Follow-Up_raw.dta", clear
 
@@ -3731,7 +3731,7 @@ forvalues i = 1/5 {
 destring date_`i' recycl_`i' second_`i' replnt_`i' qseed_`i' plot_`i' qharv_`i'  qbasal_`i' qtop_`i', replace 
 }
 
-cd "C:\Users\kurczew2\Box\Research\HICPS"
+cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 *replace rct_sale_kwacha = "." if rct_sale_kwacha == "Not yet paid" 
 *destring rct_sale_kwacha, replace

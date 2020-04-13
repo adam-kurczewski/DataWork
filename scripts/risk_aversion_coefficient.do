@@ -2,7 +2,7 @@
 
 clear all
 set more off
-cd "C:\Users\kurczew2\Box\Research\HICPS"
+cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 
 *** do I need to run/use the 2019 cleaning file prior to running this?
@@ -11,7 +11,6 @@ cd "C:\Users\kurczew2\Box\Research\HICPS"
 use HICPS_all, clear
 
 bysort HHID: replace province = province[_n-1] if year > 2016
-
 
 
 *identify observation unit and time
@@ -625,29 +624,29 @@ encode camp1, gen(camp2)
 
 *change income label
 
-label variable income "aggregate income"
+*label variable income "aggregate income"
 
 forvalues  i = 1/3 {
 	replace scenario_`i' = 0 if scenario_`i' == .
 	}
 
-replace switch_bags = "3" if switch_bags == "3 on drought yield" 
+replace switch_bags = "3" if switch_bags == "3 on drought yield " 
 replace switch_bags = "4" if switch_bags == "4bags" 
 replace switch_bags = "5" if switch_bags == "5 during drought" 
 replace switch_bags = "5" if switch_bags == "5bags" 
-replace switch_bags = "7" if switch_bags == "7 during drought" 
+replace switch_bags = "7" if switch_bags == "7 during drought " 
 replace switch_bags = "." if switch_bags == "999" 
-replace switch_bags = "." if switch_bags == "Can only chose if the number of yields increased on drought yield" 
-replace switch_bags = "." if switch_bags == "Cant say" 
+replace switch_bags = "." if switch_bags == "Can only chose if the number of yields increased on drought yield " 
+replace switch_bags = "." if switch_bags == "Cant say " 
 replace switch_bags = "." if switch_bags == "Canât decide" 
 replace switch_bags = "." if switch_bags == "Donât know" 
-replace switch_bags = "." if switch_bags == "More bags no matter the rains" 
+replace switch_bags = "." if switch_bags == "More bags no matter the rains " 
 replace switch_bags = "." if switch_bags == "Nil" 	
 replace switch_bags = "." if switch_bags == "Nil " 	
-replace switch_bags = "." if switch_bags == "No idea" 	
+replace switch_bags = "." if switch_bags == "No idea " 	
 replace switch_bags = "." if switch_bags == "No number" 	
 replace switch_bags = "." if switch_bags == "Non" 	
-replace switch_bags = "." if switch_bags == "Unless adding on drought yield"
+replace switch_bags = "." if switch_bags == "Unless adding on drought yield "
 replace switch_bags = "." if switch_bags == "."
 destring switch_bags, replace
 
@@ -660,10 +659,23 @@ gen switch_yield = switch_bags*50 if switch_bags != .
 foreach var in recycl_1 recycl_2 recycl_3 recycl_4 recycl_5 {
 	replace `var' = 0 if `var' == .
 	}
-
+	
+	
+global incomeT income_piecework income_salary income_smallbusiness ///
+income_charcoal income_gardening income_forestproduct income_livestock ///
+income_remittance income_other income_nonmaizecrop income_cabbage income_carrots ///
+income_cassava income_combeans income_cotton income_cowpeas income_groundnuts ///
+income_irishpots income_leafygreens income_millet income_okra income_onions ///
+income_orchard income_peppers income_pigeonpea income_popcorn income_pumpkin ///
+income_rice income_sorghum income_soyabeans income_sunflower income_sweetpot ///
+income_tobacco income_tomatoes income_othercrop2 income_none
+	
+foreach var in $incomeT  {
+	replace `var' = 0 if `var' == .
+	}
 	
 * income variable
-replace income = (income_piecework +income_salary +income_smallbusiness ///
+gen income = (income_piecework +income_salary +income_smallbusiness ///
 +income_charcoal +income_gardening +income_forestproduct +income_livestock ///
 +income_remittance +income_other +income_nonmaizecrop +income_cabbage +income_carrots ///
  +income_cassava +income_combeans +income_cotton +income_cowpeas +income_groundnuts ///
@@ -684,6 +696,7 @@ replace use_recycled = (recycl_1 + recycl_2 + recycl_3 + recycl_4 + recycl_5)/1 
 * adding rainfall data for seasonal_rainfall
 
 joinby HHID year using rainfall_HHID.dta, _merge(merge_rain) unmatched(master)
+
 
 *diversification
 sum cabbage carrots cassava combeans cotton cowpeas groundnuts ipotato greens   ///
