@@ -98,6 +98,10 @@ replace income = r(mean) if income > 200000
 gen income2 = 0
 replace income2 = income if year == 2016
 
+ssc install ihstrans
+ihstrans income2
+* new var = ihs_income2
+
 bysort HHID: replace income2 = income2[_n-1] if year > 2016
 
 
@@ -109,12 +113,12 @@ bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2019
 bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2018
 bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2017
 
-global controls hh_head_age hh_head_sex hh_head_edu hh_num income2 i.district
+global controls hh_head_age hh_head_sex hh_head_edu hh_num ihs_income2 i.district
 		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
 
 
 * summary stats for controls
-estpost sum hh_head_age hh_head_sex hh_head_edu hh_num s_n_hat2 income2
+estpost sum hh_head_age hh_head_sex hh_head_edu hh_num s_n_hat2 ihs_income2
 eststo sumtable
 esttab sumtable, cell((mean sd(par) min max)) nonumbers mtitles("Controls")
 
@@ -189,7 +193,8 @@ gen drought = 0
 replace drought = 1 if rainint ==1
 *cleaning
 summarize droughtint
-replace droughtint =  if droughtint == . | droughtint < 0
+replace droughtint = r(mean) if droughtint == . | droughtint < 0 & dry_spell == 1
+replace droughtint = 0 if droughtint < 0
 
 *prediction
 reg drought droughtint $controls if year != 2018
@@ -334,7 +339,7 @@ replace change_asset = 1 if exp_how_asset == 1
 
 * assuming that missing data for change in livestock aspirations is equal to no change in livestock asps (no asps then to no asps now) treating as 0
 ** need to find support for this with correlations
-replace change_livestock = 0 if change_livestock == .
+replace change_livestock = 0 if change_livestock == . & year == 2019
 gen ag_asp_change = change_livestock + change_land + change_asset
 
 
@@ -360,50 +365,130 @@ save HICPS_predicted, replace
 * forecast_aware -Q243:  are you aware of weather forecasts
 * predict_rains - Q2411: how does your rainfall prediction ability compare to 10 years ago
 
+* formal_loan - Q926: Has anyone in the household taken out a formal loan past 12 months
+* borrow500 - Q927: borrow 500 kwacha formal or informal (Y/N)
+* borrow2500 - Q927: borrow 2500 kwacha formal or informal (Y/N)
+* borrow10000 - Q927: borrow 10000 kwacha formal or informal (Y/N)
+
+* farmland - Q112: total farmland for BASELINE growing season (2016)
+
+* livestock - Q920: aggregate of number of livestock at ENDLINE (2019)
+
+* 
+
 
 
 *===========* Control Var Cleaning *===========*
+
+***********************
+* Perception controls *
+***********************
+
+sort HHID year
+
 sum latearrival if year == 2019
 replace latearrival = 0 if latearrival == . & year == 2019 & late_rain == 0
 
-sum daysnorain
+sum daysnorain if year == 2019
 bysort HHID: replace daysnorain = daysnorain[_n-1] if year > 2018
 replace daysnorain = r(mean) if daysnorain == . & year == 2019
 
-sum daysdrought
+sum daysdrought if year == 2019
 replace daysdrought = r(mean) if daysdrought == . & year == 2019
 
-sum droughtint
+sum droughtint if year == 2019
 
-sum prepared
-replace prepared =  if prepared == .
-
-sum daysdrought, d
-replace daysdrought =  if daysdrought == .
+sum droughtfreq if year == 2019
+replace droughtfreq = 4 if droughtfreq == . & year == 2019
 
 sum rains if year == 2019
 
 sum forecast_rain if year == 2019
-replace forecast_rain =  if forecast_rain == . & year == 2019
+replace forecast_rain = 0 if forecast_rain == . & year == 2019 & rains == 4
 
-sum droughtfreq if year == 2019
-replace droughtfreq =  if droughtfreq == . & year == 2019
+sum prepared if year == 2019
+replace prepared = 2 if prepared == . & year == 2019
+
+sum activities_drought if year == 2019
+
+sum forecast_use
+
+sum forecast_aware
+replace forecast_aware = 1 if forecast_aware == . & forecast_use == 1
+
+sum predict_rains if year == 2019
+replace predict_rains = r(mean) if predict_rains == . & year == 2019
 
 
+*******************
+* Credit controls *
+*******************
+sort HHID year
+
+sum formal_loan if year == 2019
+
+sum borrow500 borrow2500 borrow10000 if year == 2019
 
 
+*****************
+* Land controls *
+*****************
+
+sum farmland if year == 2019
+
+
+**********************
+* Livestock controls *
+**********************
+
+sort HHID year
+
+sum female_cattle_number goat_sheep_number poultry_number ///
+pigs_number oxen_number breeding_bull_number if year == 2019
+
+foreach var in female_cattle_number goat_sheep_number poultry_number pigs_number oxen_number breeding_bull_number {
+	bysort HHID year: replace `var' = 0 if `var' == . & year == 2019
+}
+
+* 2019 livestock counts
+gen livestock = female_cattle_number + goat_sheep_number + poultry_number ///
+	+ pigs_number + oxen_number + breeding_bull_number if year == 2019
+
+
+******************
+* Asset controls *
+******************
+
+sort HHID year
+
+sum asset_phone tv radio bike motorcycle water_pump ///
+	plough sprayers ox_carts vehicle if year == 2019
+	
+gen asset = asset_phone + tv + radio + bike + motorcycle + water_pump ///
+	+ plough + sprayers + ox_carts + vehicle if year == 2019
 
 
 * Additional Control Global Var
 
 keep if year == 2019
+sort HHID year
 
-
-global controlX s_n_hat2 prepared daysdrought rains droughtfreq droughtint
+global controlX s_n_hat2 latearrival daysnorain daysdrought droughtint ///
+	droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
+	formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset
 
 *===============================================*
 
+*****************************
+** Interactions to Include **
+*****************************
 
+* Income with shocks
+gen incomeXndrought = ihs_income2 * n_drought
+gen incomeXdroughtint = ihs_income2 * droughtint
+
+
+*===============================================*
 
 **** Shock: number of droughts
 
