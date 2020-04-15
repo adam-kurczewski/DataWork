@@ -112,14 +112,30 @@ bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2019
 bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2018
 bysort HHID: replace s_n_hat2 = s_n_hat2[_n+1] if year < 2017
 
-global controls hh_head_age hh_head_sex hh_head_edu hh_num ihs_income2 i.district
-		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
-
 
 * summary stats for controls
-estpost sum hh_head_age hh_head_sex hh_head_edu hh_num s_n_hat2 ihs_income2
+gen hh_head_age2 = hh_head_age if year == 2016
+bysort HHID: replace hh_head_age2 = hh_head_age2[_n-1] if year > 2016
+
+gen hh_head_sex2 = hh_head_sex
+bysort HHID: replace hh_head_sex2 = hh_head_sex2[_n-1] if year > 2016
+
+gen hh_head_edu2 = hh_head_edu if year == 2016
+bysort HHID: replace hh_head_edu2 = hh_head_edu2[_n-1] if year > 2016
+
+gen hh_num2 = hh_num
+bysort HHID: replace hh_num2 = hh_num2[_n-1] if year > 2016
+
+estpost sum hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2
+label var hh_head_age2 "Age"
+label var hh_head_sex2 "Sex"
+label var hh_head_edu2 "Educ"
+label var hh_num2 "Household Size"
 eststo sumtable
-esttab sumtable, cell((mean sd(par) min max)) nonumbers mtitles("Controls")
+esttab sumtable, cell((mean sd(par) max)) nonumbers mtitles("Controls") l
+
+global controls hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 i.district
+		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
 
 *==================== 84 hhheads aged 0?? =======================*
 
@@ -218,6 +234,18 @@ title(Severe Drought Prediction: Density Plot) ///
 legend(label(1 "Experienced Severe Drought") label(2 "No Severe Drought")) ///
 saving("C:\Users\kurczew2\Box\Research\HICPS\Visuals\preddensity", replace)
 
+
+
+* predictive model comparisons
+gen linear_drought = severedrought_length if severedrought_length >= 0.5 & year == 2018 
+
+gen logit_drought = severedrought_length_logit if severedrought_length_logit >= 0.5 & year == 2018 
+
+gen probit_drought = severedrought_length_p if severedrought_length_p >= 0.5 & year == 2018
+
+tabstat linear_drought logit_drought probit_drought , s(count mean sd)
+
+
 *================================================================================*
 *                                 CIRCLE BACK TO THIS							 *
 *================================================================================*
@@ -268,6 +296,7 @@ replace drought_probit = 1 if severedrought_length_p >= 0.5 & year == 2018
 
 
 
+
 * Summary Table for deciding what level is acceptable for determing 2018 drought status
 estpost summarize droughtint drought severedrought_length if year == 2016
 eststo sum2016
@@ -281,7 +310,11 @@ eststo sum2018
 estpost summarize droughtint drought severedrought_length if year == 2019
 eststo sum2019
 
-esttab sum2016 sum2017 sum2018 sum2019, cell(mean sd(par)) nonumber mlabels("2016" "2017" "2018" "2019")
+label var droughtint "droughtlength" 
+label var drought "drought"
+label var severedrought_length "drought_hat"
+
+esttab sum2016 sum2017 sum2018 sum2019, cell(mean sd(par)) nonumber mlabels("2016" "2017" "2018" "2019") l
 
 
 
@@ -473,9 +506,38 @@ gen asset = asset_phone + tv + radio + bike + motorcycle + water_pump ///
 keep if year == 2019
 sort HHID year
 
-global controlX s_n_hat2 latearrival daysnorain daysdrought droughtint ///
+global controlX s_n_hat2 ihs_income2 latearrival daysnorain daysdrought droughtint ///
 	droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 	formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset
+	
+** summary stats for additional controls
+estpost sum hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 $controlX
+eststo sumtableX
+
+*rename labels for variable interpretation in table
+label var s_n_hat2 "risk aversion"
+label var ihs_income2 "income"
+label var latearrival "latearrival"
+label var daysnorain "daysnorain"
+label var daysdrought "daysdrought"
+label var droughtint "droughtint"
+label var droughtfreq "droughtfreq"
+label var rains "rains"
+label var prepared "prepared"
+label var activities_drought "activities_drought"
+label var forecast_use "forecast_use"
+label var forecast_aware "forecast_aware"
+label var predict_rains "predict_rains"
+label var formal_loan "formal_loan"
+label var borrow500 "borrow500"
+label var borrow2500 "borrow2500"
+label var borrow10000 "borrow10000"
+label var farmland "land"
+label var livestock "livestock"
+label var asset "assets"
+
+esttab sumtableX, cell((mean sd(par) min max)) nonumbers l
+
 
 *===============================================*
 
@@ -492,7 +554,7 @@ gen incomeXdroughtint = ihs_income2 * droughtint
 
 **** Shock: number of droughts
 
-global varlist_ndrought n_drought hh_head_age hh_head_sex hh_head_edu hh_num ihs_income2 ///
+global varlist_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ihs_income2 ///
 s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXndrought 
 
@@ -503,33 +565,33 @@ formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXndr
 reg zaspirations_nolivestock n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", replace ///
 ctitle(No Livestock)  ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab title(Figure 2)
 *eststo aspnolive
 
 ** w/ livestock **
 reg zaspirations n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
 ctitle(All Dimensions) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 *eststo aspwlive
 
 ** individual dimension outcomes **
 reg zweighted_aspirations_land n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
 ctitle(Land) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 *eststo aspland
 
 reg zweighted_aspirations_livestock n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
 ctitle(Livestock) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 *eststo asplive
 
 reg zweighted_aspirations_asset n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
 ctitle(Assets) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 *eststo aspass
 
 
@@ -541,23 +603,23 @@ keep($varlist_ndrought) addtext(District FE, YES)
 * aggregate change
 reg ag_asp_change n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", replace ctitle(Aggregate Change) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab title(Figure 3)
 *eststo dagasp
 
 * by dimensions
 reg change_land n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", append ctitle(Land) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 
 *eststo daspland
 reg change_livestock n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", append ctitle(Livestock) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 *eststo dasplive
 
 reg change_asset n_drought $controls $controlX incomeXndrought, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", append ctitle(Assets) ///
-keep($varlist_ndrought) addtext(District FE, YES)
+keep($varlist_ndrought) addtext(District FE, YES) lab
 *eststo daspass
 
 
@@ -575,36 +637,36 @@ keep($varlist_ndrought) addtext(District FE, YES)
  
 *** outcome: intensity (length) of drought
 
-global varlist_droughtint droughtint hh_head_age hh_head_sex hh_head_edu hh_num ihs_income2 ///
+global varlist_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ihs_income2 ///
 s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXdroughtint 
 
 *w/o livestock
 reg zaspirations_nolivestock droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", replace ctitle(No Livestock) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab title(Figure 4)
 *eststo intaspnolive
 
 *w/ livestock (full aggregate)
 reg zaspirations droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(All Dimensions) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intaspwlive
 
 *by dimension
 reg zweighted_aspirations_land droughtint droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(Land) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intaspland
 
 reg zweighted_aspirations_livestock droughtint droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(Livestock) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intasplive
 
 reg zweighted_aspirations_asset droughtint droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(Assets) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intaspass
 
 
@@ -615,23 +677,23 @@ keep($varlist_droughtint) addtext(District FE, YES)
 * aggregate change
 reg ag_asp_change droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", replace ctitle(Aggregate Change) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab title(Figure 5)
 *eststo intagasp
 
 * by dimension change
 reg change_land droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", append ctitle(Land) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intdaspland
 
 reg change_livestock droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", append ctitle(Livestock) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intdasplive
 
 reg change_asset droughtint $controls $controlX incomeXdroughtint, base
 outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", append ctitle(Asset) ///
-keep($varlist_droughtint) addtext(District FE, YES)
+keep($varlist_droughtint) addtext(District FE, YES) lab
 *eststo intdaspass
 
 
