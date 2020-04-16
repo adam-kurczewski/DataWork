@@ -230,18 +230,19 @@ gen drought_probit = drought
 ** Visuals
 kdensity severedrought_length if drought == 1, ///
 addplot(kdensity severedrought_length if drought == 0) ///
+xline(0.3368, lp(dash) lc(gs0)) ///
 title(Severe Drought Prediction: Density Plot) ///
 legend(label(1 "Experienced Severe Drought") label(2 "No Severe Drought")) ///
-saving("C:\Users\kurczew2\Box\Research\HICPS\Visuals\preddensity", replace)
+saving("C:\Users\kurczew2\Box\Research\HICPS\Visuals\preddensity.PNG", replace)
 
 
 
-* predictive model comparisons
-gen linear_drought = severedrought_length if severedrought_length >= 0.5 & year == 2018 
+* predictive model comparisons - using 0.378983394986607 cutoff as identified in 'overlap' R code
+gen linear_drought = severedrought_length if severedrought_length >= 0.378983394986607 & year == 2018 
 
-gen logit_drought = severedrought_length_logit if severedrought_length_logit >= 0.5 & year == 2018 
+gen logit_drought = severedrought_length_logit if severedrought_length_logit >= 0.378983394986607 & year == 2018 
 
-gen probit_drought = severedrought_length_p if severedrought_length_p >= 0.5 & year == 2018
+gen probit_drought = severedrought_length_p if severedrought_length_p >= 0.378983394986607 & year == 2018
 
 tabstat linear_drought logit_drought probit_drought , s(count mean sd)
 
@@ -280,19 +281,19 @@ gen diff = sv1 - sv0
 
 
 *================================================================================*
-*                                 												 *
+*        Cutoff: using 0.378983394986607 as identified in 'overlap' R code            												 *
 *================================================================================*
 
 sort HHID year
 * severe drought if predicted value >= X & in 2018
-replace drought = 1 if severedrought_length >= 0.5 & year == 2018
-* 225 changes made
+replace drought = 1 if severedrought_length >= 0.378983394986607 & year == 2018
+* 355 changes made
 
-replace drought_logit = 1 if severedrought_length_logit >= 0.5 & year == 2018
-* 271 changes made
+replace drought_logit = 1 if severedrought_length_logit >= 0.378983394986607 & year == 2018
+* 348 changes made
 
-replace drought_probit = 1 if severedrought_length_p >= 0.5 & year == 2018
-* 267 changes made
+replace drought_probit = 1 if severedrought_length_p >= 0.378983394986607 & year == 2018
+* 344 changes made
 
 
 
