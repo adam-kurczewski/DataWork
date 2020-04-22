@@ -248,39 +248,6 @@ tabstat linear_drought logit_drought probit_drought , s(count mean sd)
 
 
 *================================================================================*
-*                                 CIRCLE BACK TO THIS							 *
-*================================================================================*
-
-/*
-* finding the crossover point...
-* looking for where the predicted value if drought == 1 - pred. value if drought == 1 = 0...
-kdensity severedrought_length, nograph gen(x d)
-
-kdensity severedrought_length if drought == 1, at(x) nograph gen(f1)
-kdensity severedrought_length if drought == 0, at(x) nograph gen(f0)
-line f1 f0 x
-
-
-
-
-gen sv1 = severedrought_length if drought == 1
-gen sv0 = severedrought_length if drought == 0
-
-bysort HHID: replace sv1 = sv1[_n+1] if sv1 == .
-bysort HHID: replace sv1 = sv1[_n+1] if sv1 == .
-bysort HHID: replace sv1 = sv1[_n+1] if sv1 == .
-bysort HHID: replace sv1 = sv1[_n-1] if sv1 == .
-
-bysort HHID: replace sv0 = sv0[_n+1] if sv0 == .
-bysort HHID: replace sv0 = sv0[_n+1] if sv0 == .
-bysort HHID: replace sv0 = sv0[_n+1] if sv0 == .
-bysort HHID: replace sv0 = sv0[_n-1] if sv0 == .
-
-gen diff = sv1 - sv0
-*/
-
-
-*================================================================================*
 *        Cutoff: using 0.378983394986607 as identified in 'overlap' R code            												 *
 *================================================================================*
 
@@ -500,6 +467,30 @@ sum asset_phone tv radio bike motorcycle water_pump ///
 	
 gen asset = asset_phone + tv + radio + bike + motorcycle + water_pump ///
 	+ plough + sprayers + ox_carts + vehicle if year == 2019
+	
+********************
+* Migrant controls *
+********************
+sort HHID year
+replace mig1_exist = 0 if mig1_exist == . & year != 2019
+replace mig2_exist = 0 if mig2_exist == 2 | mig2_exist == . & year != 2019
+
+
+gen migrant = 0
+replace migrant = mig1_exist + mig2_exist
+replace migrant = mem_remain if year == 2019
+replace migrant = 0 if migrant == .
+bysort HHID: egen migrant2 = total(migrant)
+
+
+sort HHID year
+foreach var in mig1_money mig2_money mig3_money mig4_money mig5_money {
+	replace `var' = 0 if `var' == .
+}
+
+gen remittances = 0
+replace remittances = mig1_money + mig2_money + mig3_money + mig4_money + mig5_money
+bysort HHID: egen remittances2 = total(remittances) 
 
 
 * Additional Control Global Var
@@ -509,7 +500,7 @@ sort HHID year
 
 global controlX s_n_hat2 ihs_income2 latearrival daysnorain daysdrought droughtint ///
 	droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
-	formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset
+	formal_loan borrow500 borrow2500 borrow10000 migrant remittances farmland livestock asset
 	
 ** summary stats for additional controls
 estpost sum hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 $controlX
@@ -533,6 +524,8 @@ label var formal_loan "formal_loan"
 label var borrow500 "borrow500"
 label var borrow2500 "borrow2500"
 label var borrow10000 "borrow10000"
+label var migrant "migrant"
+label var remittances "remittances"
 label var farmland "land"
 label var livestock "livestock"
 label var asset "assets"
@@ -557,151 +550,607 @@ gen incomeXdroughtint = ihs_income2 * droughtint
 
 global varlist_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ihs_income2 ///
 s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
-formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXndrought 
+formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXndrought migrant2 remittances2
 
- 
-*** aspirations: levels ***
+															***************************
+															*** aspirations: levels ***
+															***************************
+															
+															
+
+									************
+									** SIMPLE **
+									************
+
+global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2
 
 ** w/o livestock **
-reg zaspirations_nolivestock n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", replace ///
-ctitle(No Livestock)  ///
-keep($varlist_ndrought) addtext(District FE, YES) lab title(Figure 2)
-*eststo aspnolive
+reg zaspirations_nolivestock n_drought $controls , base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT1.doc", replace ///
+	ctitle(No Livestock)  ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab title(Figure 2.1: Demographics)
+
 
 ** w/ livestock **
-reg zaspirations n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
-ctitle(All Dimensions) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
-*eststo aspwlive
+reg zaspirations n_drought $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT1.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
+
 
 ** individual dimension outcomes **
-reg zweighted_aspirations_land n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
-ctitle(Land) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
-*eststo aspland
-
-reg zweighted_aspirations_livestock n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
-ctitle(Livestock) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
-*eststo asplive
-
-reg zweighted_aspirations_asset n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT.doc", append ///
-ctitle(Assets) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
-*eststo aspass
+reg zweighted_aspirations_land n_drought $controls , base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT1.doc", append ///
+	ctitle(Land) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
 
 
+reg zweighted_aspirations_livestock n_drought $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT1.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
 
 
+reg zweighted_aspirations_asset n_drought $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT1.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
 
-*** Aspirations: change
 
+										*******************
+										** SIMPLE+coping **
+										*******************
+
+
+global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+	
+global controlX2 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 
+	
+** w/o livestock **
+reg zaspirations_nolivestock n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT2.doc", replace ///
+	ctitle(No Livestock)  ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab title(Figure 2.2: Demographics & Coping Ability)
+
+
+** w/ livestock **
+reg zaspirations n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT2.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+
+** individual dimension outcomes **
+reg zweighted_aspirations_land n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT2.doc", append ///
+	ctitle(Land) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+
+reg zweighted_aspirations_livestock n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT2.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+
+reg zweighted_aspirations_asset n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT2.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+
+										***************************
+										** SIMPLE+copong+weather **
+										***************************
+										
+
+global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
+	
+global controlX3 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
+	
+** w/o livestock **
+reg zaspirations_nolivestock n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT3.doc", replace ///
+	ctitle(No Livestock)  ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab title(Figure 2.3: Demographics, Coping Ability, & Weather Perceptions)
+
+
+** w/ livestock **
+reg zaspirations n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT3.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+
+
+** individual dimension outcomes **
+reg zweighted_aspirations_land n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT3.doc", append ///
+	ctitle(Land) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+
+
+reg zweighted_aspirations_livestock n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT3.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+
+
+reg zweighted_aspirations_asset n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT3.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+
+
+										*******************************
+										** SIMPLE+coping+weather+INT **
+										*******************************
+										
+										
+global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
+	incomeXndrought
+
+** w/o livestock **
+reg zaspirations_nolivestock n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT4.doc", replace ///
+	ctitle(No Livestock)  ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab title(Figure 2.4: Demographics, Coping Ability, Weather Perceptions & Income Interaction)
+
+
+** w/ livestock **
+reg zaspirations n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT4.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
+
+
+** individual dimension outcomes **
+reg zweighted_aspirations_land n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT4.doc", append ///
+	ctitle(Land) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
+
+
+reg zweighted_aspirations_livestock n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT4.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
+
+
+reg zweighted_aspirations_asset n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHT4.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
+
+	
+
+															*****************************************
+															********* Aspirations: change ***********
+															*****************************************
+																				
+																				
+
+									**************
+									*** Simple ***
+									**************
+
+global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2									
+									
 * aggregate change
-reg ag_asp_change n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", replace ctitle(Aggregate Change) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab title(Figure 3)
-*eststo dagasp
+reg ag_asp_change n_drought $controls , base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange1.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab title(Figure 3.1: Demographics)
 
 * by dimensions
-reg change_land n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", append ctitle(Land) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
+reg change_land n_drought $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange1.doc", append ///
+	ctitle(Land) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
 
-*eststo daspland
-reg change_livestock n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", append ctitle(Livestock) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
-*eststo dasplive
+reg change_livestock n_drought $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange1.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
 
-reg change_asset n_drought $controls $controlX incomeXndrought, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange.doc", append ctitle(Assets) ///
-keep($varlist_ndrought) addtext(District FE, YES) lab
-*eststo daspass
+reg change_asset n_drought $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange1.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist1_ndrought) addtext(District FE, YES) lab
+	
+	
+	
+
+									*********************
+									*** Simple+coping ***
+									*********************
+									
+global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+	
+global controlX2 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+	
+
+* aggregate change
+reg ag_asp_change n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange2.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab title(Figure 3.2: Demographics & coping ability)
+
+* by dimensions
+reg change_land n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange2.doc", append ///
+	ctitle(Land) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+reg change_livestock n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange2.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+reg change_asset n_drought $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange2.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist2_ndrought) addtext(District FE, YES) lab
+
+	
+	
+										*****************************
+										*** Simple+coping+weather ***
+										*****************************
+										
+global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
+	
+global controlX3 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
+	
+	
+* aggregate change
+reg ag_asp_change n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange3.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab title(Figure 3.3: Demographics, coping ability, & weather perceptions)
+
+* by dimensions
+reg change_land n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange3.doc", append ///
+	ctitle(Land) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+
+reg change_livestock n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange3.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+
+reg change_asset n_drought $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange3.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist3_ndrought) addtext(District FE, YES) lab
+	
+	
+									*********************************
+									*** Simple+coping+weather+INT ***
+									*********************************
+									
+global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
+	incomeXndrought
+	
+
+* aggregate change
+reg ag_asp_change n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange4.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab title(Figure 3.4: Demographics, coping ability, weather perceptions, & interactions)
+
+* by dimensions
+reg change_land n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange4.doc", append ///
+	ctitle(Land) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
+
+reg change_livestock n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange4.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
+
+reg change_asset n_drought $controls $controlX3 incomeXndrought, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxNDROUGHTchange4.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist4_ndrought) addtext(District FE, YES) lab
 
 
-
-** ESTTAB output
-*esttab aspnolive aspwlive aspland asplive aspass using stataexample1.doc, mlabels("No Livestock" compress replace
-*esttab dagasp daspland dasplive daspass using stataexample2.doc, compress replace
-
-
-
-
+	
+															*******************************
+															**** droughtin: asp levels ****
+															*******************************
 
 
 
  
 *** outcome: intensity (length) of drought
 
-global varlist_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ihs_income2 ///
-s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
-formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXdroughtint 
+										**************
+										*** simple ***
+										**************
+
+
+global varlist1_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2
+ 
 
 *w/o livestock
-reg zaspirations_nolivestock droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", replace ctitle(No Livestock) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab title(Figure 4)
-*eststo intaspnolive
+reg zaspirations_nolivestock droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT1.doc", replace ///
+	ctitle(No Livestock) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab title(Figure 4.1: Demographics)
 
 *w/ livestock (full aggregate)
-reg zaspirations droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(All Dimensions) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intaspwlive
+reg zaspirations droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT1.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
 
 *by dimension
-reg zweighted_aspirations_land droughtint droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(Land) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intaspland
+reg zweighted_aspirations_land droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT1.doc", append ///
+	ctitle(Land) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
 
-reg zweighted_aspirations_livestock droughtint droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(Livestock) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intasplive
+reg zweighted_aspirations_livestock droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT1.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
 
-reg zweighted_aspirations_asset droughtint droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT.doc", append ctitle(Assets) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intaspass
+reg zweighted_aspirations_asset droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT1.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
+	
+		
+		
+		
+										*********************
+										*** simple+coping ***
+										*********************
+										
+global varlist2_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+										
+global controlX2 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 
 
+*w/o livestock
+reg zaspirations_nolivestock droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT2.doc", replace ///
+	ctitle(No Livestock) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab title(Figure 4.2: Demographics & Coping Ability)
 
+*w/ livestock (full aggregate)
+reg zaspirations droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT2.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
 
+*by dimension
+reg zweighted_aspirations_land droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT2.doc", append ///
+	ctitle(Land) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
 
-*** Aspirations: change
+reg zweighted_aspirations_livestock droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT2.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
+
+reg zweighted_aspirations_asset droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT2.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
+
+	
+	
+										*****************************
+										*** simple+coping+weather ***
+										*****************************
+
+global varlist3_droughtint droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains  
+
+global controlX3 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
+	
+	*w/o livestock
+reg zaspirations_nolivestock droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT3.doc", replace ///
+	ctitle(No Livestock) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab title(Figure 4.3: Demographics, Coping Ability, & Weather Perceptions)
+
+*w/ livestock (full aggregate)
+reg zaspirations droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT3.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+
+*by dimension
+reg zweighted_aspirations_land droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT3.doc", append ///
+	ctitle(Land) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+
+reg zweighted_aspirations_livestock droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT3.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+
+reg zweighted_aspirations_asset droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT3.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+	
+	
+									*********************************
+									*** simple+coping+weather+INT ***
+									*********************************
+
+global varlist4_droughtint droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
+	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
+	incomeXdroughtint
+						
+									
+*w/o livestock
+reg zaspirations_nolivestock droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT4.doc", replace ///
+	ctitle(No Livestock) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab title(Figure 4.3: Demographics, Coping Ability, & Weather Perceptions)
+
+*w/ livestock (full aggregate)
+reg zaspirations droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT4.doc", append ///
+	ctitle(All Dimensions) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+
+*by dimension
+reg zweighted_aspirations_land droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT4.doc", append ///
+	ctitle(Land) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+
+reg zweighted_aspirations_livestock droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT4.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+
+reg zweighted_aspirations_asset droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINT4.doc", append ///
+	ctitle(Assets) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+				
+
+	
+
+	
+	
+													******************************
+													*** droughtint: asp change ***
+													******************************
+														
+							**************
+							*** simple ***
+							**************	
 
 * aggregate change
-reg ag_asp_change droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", replace ctitle(Aggregate Change) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab title(Figure 5)
-*eststo intagasp
+reg ag_asp_change droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange1.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab title(Figure 5.1: Demographics)
 
 * by dimension change
-reg change_land droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", append ctitle(Land) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intdaspland
+reg change_land droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange1.doc", append ///
+	ctitle(Land) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
 
-reg change_livestock droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", append ctitle(Livestock) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intdasplive
+reg change_livestock droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange1.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
 
-reg change_asset droughtint $controls $controlX incomeXdroughtint, base
-outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange.doc", append ctitle(Asset) ///
-keep($varlist_droughtint) addtext(District FE, YES) lab
-*eststo intdaspass
+reg change_asset droughtint $controls, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange1.doc", append ///
+	ctitle(Asset) ///
+	keep($varlist1_droughtint) addtext(District FE, YES) lab
 
+	
+							*********************
+							*** simple+coping ***
+							*********************
+	
+* aggregate change
+reg ag_asp_change droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange2.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab title(Figure 5.2: Demographics & coping ability)
 
+* by dimension change
+reg change_land droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange2.doc", append ///
+	ctitle(Land) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
 
-** output
-*esttab intaspnolive intaspwlive intaspland intasplive intaspass using stataexample3.doc, compress replace
-*esttab intaspland intasplive intaspass intagasp using stataexample4.doc, compress replace
+reg change_livestock droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange2.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
+
+reg change_asset droughtint $controls $controlX2, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange2.doc", append ///
+	ctitle(Asset) ///
+	keep($varlist2_droughtint) addtext(District FE, YES) lab
+
+	
+								*****************************
+								*** simple+coping+weather ***
+								*****************************
+								
+* aggregate change
+reg ag_asp_change droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange3.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab title(Figure 5.3: Demographics, coping ability, & weather perceptions)
+
+* by dimension change
+reg change_land droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange3.doc", append ///
+	ctitle(Land) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+
+reg change_livestock droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange3.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+
+reg change_asset droughtint $controls $controlX3, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange3.doc", append ///
+	ctitle(Asset) ///
+	keep($varlist3_droughtint) addtext(District FE, YES) lab
+	
+	
+	
+								*********************************
+								*** simple+coping+weather+INT ***
+								*********************************
+								
+* aggregate change
+reg ag_asp_change droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange4.doc", replace ///
+	ctitle(Aggregate Change) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab title(Figure 5.4: Demographics, coping ability, weather perceptions & interaction)
+
+* by dimension change
+reg change_land droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange4.doc", append ///
+	ctitle(Land) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+
+reg change_livestock droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange4.doc", append ///
+	ctitle(Livestock) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+
+reg change_asset droughtint $controls $controlX3 incomeXdroughtint, base
+	outreg2 using "C:\Users\kurczew2\Box\Research\HICPS\Visuals\outregASPxDROUGHTINTchange4.doc", append ///
+	ctitle(Asset) ///
+	keep($varlist4_droughtint) addtext(District FE, YES) lab
+
 
 
 
