@@ -134,7 +134,22 @@ label var hh_num2 "Household Size"
 eststo sumtable
 esttab sumtable, cell((mean sd(par) max)) nonumbers mtitles("Controls") l
 
-global controls hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 i.district
+*********************
+* Parents Education *
+*********************
+
+replace educ_father = 11 if educ_father == .
+replace educ_mother = 11 if educ_mother == .
+
+label define parent_educ ///
+	4 "None" 5 "Some Primary" 6 "Completed Primary" 7 "Some Secondary" ///
+	8 "Completed Secondary" 9 "Some Post-Secondary" 10 "Masters" 11 "Unknown" 12 "PhD" 
+	
+label values educ_father parent_educ
+label values educ_mother parent_educ
+
+
+global controls hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_father educ_mother i.district
 		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
 
 *==================== 84 hhheads aged 0?? =======================*
@@ -381,6 +396,51 @@ save HICPS_predicted, replace
 
 *===========* Control Var Cleaning *===========*
 
+***************
+* Expenditure *
+***************
+
+sort HHID year
+
+* weekly
+replace food_budget_7day = 0 if food_budget_7day == .
+
+sum talktime_budget_7day year
+replace talktime_budget_7day = r(mean) if talktime_budget_7day == .
+
+* monthly
+replace veterinary_cost_month = 0 if veterinary_cost_month == .
+
+sum clothing_cost_month
+replace clothing_cost_month = r(mean) if clothing_cost_month == .
+
+sum transportation_cost_month
+replace transportation_cost_month = r(mean) if transportation_cost_month == .
+
+sum alcohol_cost_month
+replace alcohol_cost_month = r(mean) if alcohol_cost_month == .
+
+sum other_cost_month
+replace other_cost_month = r(mean) if other_cost_month == .
+
+* yearly
+bysort HHID: replace school_fees = school_fees[_n+1] if year < 2017
+
+bysort HHID: replace medical_exp = medical_exp[_n+1] if year < 2017
+
+* annual aggregate
+gen yearly_expenditure = ((food_budget_7day*4) + (talktime_budget_7day*4)) ///
+	+ (veterinary_cost_month + clothing_cost_month + transportation_cost_month + alcohol_cost_month + other_cost_month)*12 ///
+	+ (school_fees + medical_exp)
+	
+gen annual_percap_expenditure = yearly_expenditure / hh_num if year == 2016
+
+gen annual_percap_expenditure2 = annual_percap_expenditure
+replace annual_percap_expenditure2 = annual_percap_expenditure2[_n-1] if year > 2016
+
+
+
+
 ***********************
 * Perception controls *
 ***********************
@@ -507,8 +567,11 @@ estpost sum hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 $controlX
 eststo sumtableX
 
 *rename labels for variable interpretation in table
+label var educ_father "educ_father"
+label var educ_mother "educ_mother"
 label var s_n_hat2 "risk aversion"
 label var ihs_income2 "income"
+label var annual_percap_expenditure2 "Annual Per Capita Expenditure"
 label var latearrival "latearrival"
 label var daysnorain "daysnorain"
 label var daysdrought "daysdrought"
@@ -529,6 +592,8 @@ label var remittances "remittances"
 label var farmland "land"
 label var livestock "livestock"
 label var asset "assets"
+label var migrant2 "migrant"
+label var remittances2 "remittances"
 
 esttab sumtableX, cell((mean sd(par) min max)) nonumbers l
 
@@ -548,7 +613,7 @@ gen incomeXdroughtint = ihs_income2 * droughtint
 
 **** Shock: number of droughts
 
-global varlist_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ihs_income2 ///
+global varlist_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ihs_income2 annual_percap_expenditure2 ///
 s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXndrought migrant2 remittances2
 
@@ -562,7 +627,7 @@ formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset incomeXndr
 									** SIMPLE **
 									************
 
-global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2
+global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
 
 ** w/o livestock **
 reg zaspirations_nolivestock n_drought $controls , base
@@ -602,8 +667,8 @@ reg zweighted_aspirations_asset n_drought $controls, base
 										*******************
 
 
-global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
 	
 global controlX2 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 
 	
@@ -645,11 +710,11 @@ reg zweighted_aspirations_asset n_drought $controls $controlX2, base
 										***************************
 										
 
-global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
 	
-global controlX3 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global controlX3 ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
 	
 ** w/o livestock **
@@ -690,8 +755,8 @@ reg zweighted_aspirations_asset n_drought $controls $controlX3, base
 										*******************************
 										
 										
-global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 	incomeXndrought
 
@@ -739,7 +804,7 @@ reg zweighted_aspirations_asset n_drought $controls $controlX3 incomeXndrought, 
 									*** Simple ***
 									**************
 
-global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2									
+global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father									
 									
 * aggregate change
 reg ag_asp_change n_drought $controls , base
@@ -770,10 +835,10 @@ reg change_asset n_drought $controls, base
 									*** Simple+coping ***
 									*********************
 									
-global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
 	
-global controlX2 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+global controlX2 ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
 	
 
 * aggregate change
@@ -804,11 +869,11 @@ reg change_asset n_drought $controls $controlX2, base
 										*** Simple+coping+weather ***
 										*****************************
 										
-global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
 	
-global controlX3 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global controlX3 ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
 	
 	
@@ -839,8 +904,8 @@ reg change_asset n_drought $controls $controlX3, base
 									*** Simple+coping+weather+INT ***
 									*********************************
 									
-global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 	incomeXndrought
 	
@@ -883,7 +948,7 @@ reg change_asset n_drought $controls $controlX3 incomeXndrought, base
 										**************
 
 
-global varlist1_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2
+global varlist1_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
  
 
 *w/o livestock
@@ -921,8 +986,8 @@ reg zweighted_aspirations_asset droughtint $controls, base
 										*** simple+coping ***
 										*********************
 										
-global varlist2_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
+global varlist2_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2
 										
 global controlX2 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 
 
@@ -960,11 +1025,11 @@ reg zweighted_aspirations_asset droughtint $controls $controlX2, base
 										*** simple+coping+weather ***
 										*****************************
 
-global varlist3_droughtint droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global varlist3_droughtint droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains  
 
-global controlX3 ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global controlX3 ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains
 	
 	*w/o livestock
@@ -1000,8 +1065,8 @@ reg zweighted_aspirations_asset droughtint $controls $controlX3, base
 									*** simple+coping+weather+INT ***
 									*********************************
 
-global varlist4_droughtint droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 ///
-	ihs_income2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
+global varlist4_droughtint droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	ihs_income2 annual_percap_expenditure2 formal_loan borrow500 borrow2500 borrow10000 farmland livestock asset migrant2 remittances2 ///
 	s_n_hat2 latearrival daysnorain daysdrought droughtfreq rains prepared activities_drought forecast_use forecast_aware predict_rains ///
 	incomeXdroughtint
 						
