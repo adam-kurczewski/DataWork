@@ -24,18 +24,7 @@ dx1_logit = density(subset(hp, drought == 1)$severedrought_length_logit,
 intersection_logit = dx0_logit$x[which(diff((dx0_logit$y - dx1_logit$y) > 0) != 0) + 1]
 
 intersection_logit
-
-
-### Probit ###
-
-dx0_probit = density(subset(hp, drought == 0)$severedrought_length_p,
-              from = min(hp$severedrought_length_p), to = max(hp$severedrought_length_p), n = 2^10)
-dx1_probit = density(subset(hp, drought == 1)$severedrought_length_p,
-              from = min(hp$severedrought_length_p), to = max(hp$severedrought_length_p), n = 2^10)
-
-intersection_probit = dx0_probit$x[which(diff((dx0_probit$y - dx1_probit$y) > 0) != 0) + 1]
-
-intersection_probit
+interse
 
 
 ###############################################
