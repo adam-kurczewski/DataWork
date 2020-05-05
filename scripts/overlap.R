@@ -1,5 +1,7 @@
 # run 'correlations.do' prior to using this, as it depends on clean HICPS_predicted
 library(haven)
+library(dplyr)
+library(stargazer)
 HICPS_predicted <- read_dta("C:/Users/kurczew2/Box/Research/HICPS/Data/HICPS_predicted.dta")
 hp = HICPS_predicted
 
@@ -14,6 +16,8 @@ intersection = dx0$x[which(diff((dx0$y - dx1$y) > 0) != 0) + 1]
 
 intersection
 
+
+
 ### Logit ###
 
 dx0_logit = density(subset(hp, drought == 0)$severedrought_length_logit,
@@ -24,8 +28,47 @@ dx1_logit = density(subset(hp, drought == 1)$severedrought_length_logit,
 intersection_logit = dx0_logit$x[which(diff((dx0_logit$y - dx1_logit$y) > 0) != 0) + 1]
 
 intersection_logit
-interse
 
+
+
+### Probit ###
+
+dx0_probit = density(subset(hp, drought == 0)$severedrought_length_p,
+                    from = min(hp$severedrought_length_p), to = max(hp$severedrought_length_p), n = 2^10)
+dx1_probit = density(subset(hp, drought == 1)$severedrought_length_p,
+                    from = min(hp$severedrought_length_p), to = max(hp$severedrought_length_p), n = 2^10)
+
+intersection_probit = dx0_probit$x[which(diff((dx0_probit$y - dx1_probit$y) > 0) != 0) + 1]
+
+intersection_probit
+
+
+### Graph of Drought Predictions ###
+
+drought = table(hp$drought, hp$year)
+ln_drought = table(hp$drought2, hp$year)
+logit_drought = table(hp$drought2_logit, hp$year)
+probit_drought = table(hp$drought2_probit, hp$year)
+
+drought[2,]
+ln_drought[2,]
+logit_drought[2,]
+probit_drought[2,]
+
+
+df =as.data.frame(rbind(drought[2,], 
+      ln_drought[2,], 
+      logit_drought[2,],
+      probit_drought[2,]),
+      row.names = c("Drought", "Linear", "Logit", "Probit"))
+
+write.table(df,
+            sep = ",")
+
+stargazer(df,
+          type = "text",
+          rownames = T,
+          title = "Table 2")
 
 ###############################################
 #                                             #

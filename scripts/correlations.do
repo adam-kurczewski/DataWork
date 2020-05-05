@@ -720,13 +720,13 @@ gen drought2_probit = 0
 
 
 * severe drought if predicted value >= X
-replace drought2 = 1 if severedrought_length >= 0.3789834
+replace drought2 = 1 if severedrought_length >= 0.33308633
 
 
-replace drought2_logit = 1 if severedrought_length_logit >= 0.3563631
+replace drought2_logit = 1 if severedrought_length_logit >= 0.31353457
 
 
-replace drought2_probit = 1 if severedrought_length_p >= 0.3579245
+replace drought2_probit = 1 if severedrought_length_p >= 0.31786554
 
 
 
@@ -743,24 +743,9 @@ replace drought2_probit = 1 if severedrought_length_p >= 0.3579245
 
 
 
-* Summary Table for deciding what level is acceptable for determing 2018 drought status
-estpost summarize droughtint drought drought2 if year == 2016
-eststo sum2016
+** Summary Table for deciding what level is acceptable for determing 2018 drought status
+* 2016
 
-estpost summarize droughtint drought drought2 if year == 2017
-eststo sum2017
-
-estpost summarize droughtint drought drought2 if year == 2018
-eststo sum2018
-
-estpost summarize droughtint drought drought2 if year == 2019
-eststo sum2019
-
-label var droughtint "droughtlength" 
-label var drought "drought"
-label var drought2 "drought_hat"
-
-esttab sum2016 sum2017 sum2018 sum2019, cell(count mean sd(par)) nonumber mlabels("2016" "2017" "2018" "2019") l
 
 
 
