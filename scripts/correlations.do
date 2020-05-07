@@ -165,7 +165,10 @@ sort HHID year
 * Demographics *
 ****************
 
+* weirdness in the data regarding birth_1 and hh_head_birth.........
 gen hh_head_age2 = hh_head_age if year == 2016
+replace hh_head_age2 = (2016 - birth_1) if hh_head_birth == . & hh_head_age != (2016 - birth_1)
+replace hh_head_age2 = (2016-birth_1) if hh_head_age2 <= 8
 bysort HHID: replace hh_head_age2 = hh_head_age2[_n-1] if year > 2016
 
 gen hh_head_sex2 = hh_head_sex
@@ -211,7 +214,8 @@ global controls hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_father educ_
 		   *dum1 dum2 dum3 dum4 dum5 dum6 dum7 dum8 dum9 dum10 dum11 dum12
 
 *===================================================================================================*
-		   
+
+
 		   
 		   
 **********
@@ -313,23 +317,17 @@ sum droughtfreq if year == 2019
 gen droughtfreq2 = 0
 replace droughtfreq2 = 0 if droughtfreq == 11 | droughtfreq == .
 replace droughtfreq2 = 1 if droughtfreq == 10
-replace droughtfreq2 = 2 if droughtfreq == 9
-replace droughtfreq2 = 3 if droughtfreq == 8
-replace droughtfreq2 = 4 if droughtfreq == 7
-replace droughtfreq2 = 5 if droughtfreq == 6
-replace droughtfreq2 = 6 if droughtfreq == 5
-replace droughtfreq2 = 7 if droughtfreq == 4
-replace droughtfreq2 = 8 if droughtfreq == 3
-replace droughtfreq2 = 9 if droughtfreq == 2
+replace droughtfreq2 = 1 if droughtfreq == 9
+replace droughtfreq2 = 1 if droughtfreq == 8
+replace droughtfreq2 = 1 if droughtfreq == 7
+replace droughtfreq2 = 1 if droughtfreq == 6
+replace droughtfreq2 = 2 if droughtfreq == 5
+replace droughtfreq2 = 2 if droughtfreq == 4
+replace droughtfreq2 = 3 if droughtfreq == 3
+replace droughtfreq2 = 5 if droughtfreq == 2
 replace droughtfreq2 = 10 if droughtfreq == 1
-
-label define droughtfreq2_la ///
-	0 "never" ///
-	1 "once every 10 years" 5 "once every 9 years" 2 "once every 8 years" 3 "once every 7 years" ///
-	4 "once every 6 years" 5 "once every 5 years" 6 "once every 5 years" 7 "once every 4 years" ///
-	8 "once every 3 years" 9 "every other year" 10 "every year"
 	
-label values droughtfreq2 droughtfreq2_la 
+label var droughtfreq2 "Drought Frequency"
 
 *****
 sum rains if year == 2019
@@ -595,7 +593,7 @@ bysort HHID: replace remittances2 = remittances2[_n-1] if year > 2016
 sort HHID year
 
 global controlX ihs_income2 formal_loan2 credit2 migrant remittances2 farmland2 livestock_index2 asset_pca  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 
 	
 ** summary stats for all controls
 estpost sum hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father $controlX if year == 2019
@@ -613,7 +611,6 @@ label var rains2 "rains"
 label var prepared2 "prepared"
 label var activities_drought2 "activities_drought"
 label var forecast_use2 "forecast_use"
-label var predict_rains2 "predict_rains"
 label var formal_loan2 "formal_loan"
 label var credit2 "credit"
 label var migrant3 "migrant"
@@ -837,7 +834,7 @@ gen creditXdroughtfreq = credit2 * droughtfreq
 
 global varlistndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father i.district ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 
 	
 **********
 
@@ -851,12 +848,12 @@ global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 * simple++
 global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 
 
 * simple ++ interation
 global varlist4_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2 ///
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2  ///
 	incomeXndrought creditXndrought
 	
 
@@ -1059,12 +1056,12 @@ global varlist2_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_
 * simple++
 global varlist3_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 
 
 * simple ++ interation
 global varlist4_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2 ///
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2  ///
 	incomeXndrought creditXndrought												
 
 *******************************
@@ -1250,12 +1247,12 @@ global varlist2_droughtfreq droughtfreq hh_head_age2 hh_head_sex2 hh_head_edu2 h
 * simple++
 global varlist3_droughtfreq droughtfreq hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 
 
 * simple ++ interation
 global varlist4_droughtfreq droughtfreq hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	ihs_income2 formal_loan2 credit2 farmland2 livestock_index2 asset_pca migrant3 remittances2  ///
-	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2 predict_rains2 ///
+	s_n_hat2 rains2 prepared2 activities_drought2 forecast_use2  ///
 	incomeXndrought creditXndrought	
 ***************************************************************************************************************************
 	
