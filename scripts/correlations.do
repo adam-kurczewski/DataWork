@@ -703,18 +703,47 @@ gen drought_logit = drought
 gen drought_probit = drought
 
 ** Visuals
+cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
+
 kdensity severedrought_length if drought == 1, ///
 addplot(kdensity severedrought_length if drought == 0) ///
 xline(0.334, lp(dash) lc(gs0)) ///
 title(Severe Drought Prediction: Density Plot) ///
 legend(label(1 "Experienced Severe Drought") label(2 "No Severe Drought")) ///
-saving("C:\Users\kurczew2\Box\Research\HICPS\Visuals\preddensity.PNG", replace)
+saving("preddensity.PNG", replace)
 
-/*
-drawnorm x, n(100000) means(0) sds(1)
-kdensity x, xline(2) xline(-1.5)
 
-*/
+* reduction is aspirations
+twoway function y=normalden(x), range(-4 4) ///
+	title("Distribution of Land Aspirations") ///
+	subtitle("Change in Aspirations") ///
+	xtitle("") ytitle("") ///
+	xline(-.9, lc(gs0)) ///
+	xline(1.2) ///
+	xline(-0.4) ///
+	xlabel(-0.9 "H1" 1.2 "A1" -0.4 "A2")
+	
+* reduction in current econ standing
+twoway function y=normalden(x), range(-4 4) ///
+	title("Distribution of Land Aspirations") ///
+	subtitle("Change in Economic Standing") ///
+	xtitle("") ytitle("") ///
+	xline(-.9, lc(gs0)) ///
+	xline(-1.9, lc(gs0)) ///
+	xline(1.2) ///
+	xlabel(-0.9 "H1" -1.9 "H2" 1.2 "A1")
+	
+* reduction in both
+twoway function y=normalden(x), range(-4 4) ///
+	title("Distribution of Land Aspirations") ///
+	subtitle("Change in Economic Standing and Aspirations") ///
+	xtitle("") ytitle("") ///
+	xline(-2.1, lc(gs0)) ///
+	xline(-1.4, lc(gs0)) ///
+	xline(1.2) ///
+	xline(0.2) ///
+	xlabel(-1.4 "H1" -2.1 "H2" 1.2 "A1" 0.2 "A2")
+	
 
 *================================================================================*
 *        Sample cutoff as identified in 'overlap' R code
@@ -724,6 +753,7 @@ kdensity x, xline(2) xline(-1.5)
 *				logit:  0.3563631
 *				probit: 0.3579245 
 *================================================================================*
+cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 sort HHID year
 gen drought2 = 0
@@ -909,12 +939,12 @@ gen riskXndrought = s_n_hat2 * n_drought
 gen riskXdroughtint = s_n_hat2 * droughtint
 gen riskXdroughtfreq = s_n_hat2 * droughtfreq2
 
-* prepared (not included)
+* prepared
 gen preparedXndrought = prepared2 * n_drought
 gen preparedXdroughtint = prepared2 * droughtint
 gen preparedXdroughtfreq = prepared2 * droughtfreq
 
-* activities (not included)
+* activities
 gen activityXndrought = activities_drought2 * n_drought
 gen activityXdroughtint = activities_drought2 * droughtint
 gen activityXdroughtfreq = activities_drought2 * droughtfreq
@@ -944,7 +974,7 @@ global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXndrought
+	creditXndrought preparedXndrought activityXndrought
 	
 
 															************************
@@ -1135,7 +1165,7 @@ global varlist2_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_
 global varlist3_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXdroughtint
+	creditXdroughtint preparedXdroughtint activityXdroughtint
 	 											
 
 *******************************
@@ -1288,7 +1318,7 @@ global varlist2_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 
 global varlist3_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXdroughtfreq
+	creditXdroughtfreq preparedXdroughtfreq activityXdroughtfreq
 	
 	
 ***************************************************************************************************************************
