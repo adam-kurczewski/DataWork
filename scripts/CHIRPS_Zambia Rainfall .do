@@ -10,7 +10,7 @@ cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
 *import raw data and reshape and save file
 
-import excel "C:\Users\kurczew2\Box\Research\HICPS\Data\CHIRPS_Zambia_daily.xlsx",  firstrow
+import excel "CHIRPS_Zambia_daily.xlsx",  firstrow
 
 
 label variable A "Date"
@@ -52,9 +52,21 @@ save "dailyrainXhhid", replace
 *Takes the daily data at the HHID and aggregates it to the camp level. Creates other necessary variables at camp, district and provincial spatial scales. 
 
 use "dailyrainXhhid", clear
-destring HHID, replace 
-xtset HHID date
+destring HHID, replace
 
+joinby HHID using HHID.dta, _merge(merge1) unmatched(master)
+*tab merge1
+xtset hh1 date
+
+joinby HHID using hh_geo_info.dta, _merge(merge2) unmatched(master)
+
+
+
+***************************************************************************************************
+***************************************************************************************************
+***************************************************************************************************
+***************************************************************************************************
+***************************************************************************************************
 
 merge m:1 HHID using "2016 HICPS.dta", keepusing(camp province district)
 
