@@ -858,11 +858,52 @@ label var change_asset "Asset change"
 save HICPS_predicted, replace
 
 
+	
+	
+	
+*======================================================================================*
+
+********************* merging CHIRPS ***************************************************
+
+*======================================================================================*
+
+decode camp2, g(camp3)
+* merge using district camp agyr renaming agyr to year
+
+*38 (full CHIRPS data)
+*joinby district camp3 year using "Rainfall shocks by camp agyr-monthly.38yr", _merge(merge3) unmatched(both)
+*save HICPS-CHIRPS.38yr, replace
+
+*30
+*joinby district camp3 year using "Rainfall shocks by camp agyr-monthly.30yr", _merge(merge3) unmatched(both)
+*save HICPS-CHIRPS.30yr, replace
+
+*20
+*joinby district camp3 year using "Rainfall shocks by camp agyr-monthly.20yr", _merge(merge3) unmatched(both)
+*save HICPS-CHIRPS.20yr, replace
+
+*10
+joinby district camp3 year using "Rainfall shocks by camp agyr-monthly.10yr", _merge(merge3) unmatched(both)
+save HICPS-CHIRPS.10yr, replace
+
+drop if year < 2016 | year > 2019
+
+* total # of years where rainfall was in the bottom 10% of X year rainfall distribution
+bysort HHID: egen total_neg10 = total(neg10)
+
+* total # of years where rainfall was in the bottom 20% of X year rainfall distribution
+bysort HHID: egen total_neg20 = total(neg20)
+
+* total # of years where growing season total rainfall was at least one standard deviation less than X year total
+bysort HHID: egen total_negz = total(negz)
+tab total_negz
+
 *=========================================================================================*
 
 *********************************** Correlations ******************************************
 
 *=========================================================================================*
+
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
 
@@ -905,17 +946,15 @@ eststo modelcomp
 
 asdoc sum n_drought droughtint droughtfreq2, ///
 	save(shockcomp) title(Table X: Summary Statistics for Shock Variables) replace
-
-
-
-
-
+	
+	
+	
+	
 *=====================================================================================*
 
 ************************************* RESULTS *****************************************
 
 *=====================================================================================*
-
 
 keep if year == 2019
 
@@ -975,7 +1014,7 @@ global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
 	creditXndrought preparedXndrought activityXndrought
-	
+/*
 
 															************************
 															*** ndrought: levels ***
@@ -1140,7 +1179,7 @@ ologit change_asset n_drought $varlist3_ndrought i.district, or vce(cl HHID) bas
 
 	
 	
-	
+
 
 
 	
@@ -1472,7 +1511,46 @@ reg droughtfreq2 rains2 prepared2 activities_drought2 forecast_use2 i.district, 
 reg droughtfreq2 i.rainfall_19 droughtint i.district, base
 	outreg2 using "droughtfreqXweather.doc", replace ///
 	addtext(District FE, YES)
+*/
+	
+	**********************************************************************
+	
+	*===================== CHIRPS ROBUSTNESS CHECKS =====================*
+	
+	**********************************************************************
 
+cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\total_negz"
+
+* simple
+global varlist1_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
+
+* simple+
+global varlist2_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
+
+* simple++interaction
+global varlist3_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
+	rains2 prepared2 activities_drought2 ///
+	creditXndrought preparedXndrought activityXndrought
+	
+
+foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+	reg `var' total_negz $varlist1_negz i.district, vce(cl HHID) base
+		outreg2 using `var'Xnegz10yr.doc, replace ///
+		ctitle(" ") ///
+		keep($varlist1_negz) addtext(District FE, YES) lab title(Table X.X:)
+		
+	reg `var' total_negz $varlist2_negz i.district, vce(cl HHID) base
+		outreg2 using `var'Xnegz10yr.doc, append ///
+		ctitle(" ") ///
+		keep($varlist2_negz) addtext(District FE, YES)
+		
+	reg `var' total_negz $varlist3_negz i.district, vce(cl HHID) base
+		outreg2 using `var'Xnegz10yr.doc, append ///
+		ctitle(" ") ///
+		keep($varlist3_negz) addtext(District FE, YES)
+}
 
 
 **************************************************************************************************************************************
