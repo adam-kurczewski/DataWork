@@ -421,6 +421,8 @@ bysort HHID agyr: egen zero_rain=sum(zero_rainfall)
 
 order date agyr HHID camp zero_rain
 
+save "daily0rainXhhid", replace
+
 
 
 
