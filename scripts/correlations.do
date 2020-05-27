@@ -856,7 +856,7 @@ label var change_asset "Asset change"
 
 
 save HICPS_predicted, replace
-
+*use HICPS_predicted, clear
 
 	
 	
@@ -869,6 +869,8 @@ save HICPS_predicted, replace
 
 decode camp2, g(camp3)
 * merge using district camp agyr renaming agyr to year
+
+************ MONTHLY ****************
 
 *38 (full CHIRPS data)
 *joinby district camp3 year using "Rainfall shocks by camp agyr-monthly.38yr", _merge(merge3) unmatched(both)
@@ -897,6 +899,12 @@ bysort HHID: egen total_neg20 = total(neg20)
 * total # of years where growing season total rainfall was at least one standard deviation less than X year total
 bysort HHID: egen total_negz = total(negz)
 tab total_negz
+drop zero_rain
+
+
+*********************************** DAILY ********************************************
+
+joinby HHID district camp3 year using "daily0rainXhhid", _merge(merge_daily) unmatched(master)
 
 *=========================================================================================*
 
@@ -904,6 +912,7 @@ tab total_negz
 
 *=========================================================================================*
 
+save "HICPS-preresults"
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
 
@@ -955,6 +964,7 @@ asdoc sum n_drought droughtint droughtfreq2, ///
 ************************************* RESULTS *****************************************
 
 *=====================================================================================*
+
 
 keep if year == 2019
 
@@ -1014,6 +1024,8 @@ global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
 	creditXndrought preparedXndrought activityXndrought
+	
+
 /*
 
 															************************
@@ -1551,6 +1563,43 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 		ctitle(" ") ///
 		keep($varlist3_negz) addtext(District FE, YES)
 }
+
+
+
+
+cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\daily_zero_rain"
+
+* simple
+global varlist1_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
+
+* simple+
+global varlist2_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
+
+* simple++interaction
+global varlist3_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
+	rains2 prepared2 activities_drought2 ///
+	creditXndrought preparedXndrought activityXndrought
+	
+
+foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+	reg `var' daily_zero_rain $varlist1_zerorain i.district, vce(cl HHID) base
+		outreg2 using `var'Xnorain.doc, replace ///
+		ctitle(" ") ///
+		keep($varlist1_zerorain) addtext(District FE, YES) lab title(Table X.X:)
+		
+	reg `var' daily_zero_rain $varlist2_zerorain i.district, vce(cl HHID) base
+		outreg2 using `var'Xnorain.doc, append ///
+		ctitle(" ") ///
+		keep($varlist2_zerorain) addtext(District FE, YES)
+		
+	reg `var' daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID) base
+		outreg2 using `var'Xnorain.doc, append ///
+		ctitle(" ") ///
+		keep($varlist3_zerorain) addtext(District FE, YES)
+}
+
 
 
 **************************************************************************************************************************************

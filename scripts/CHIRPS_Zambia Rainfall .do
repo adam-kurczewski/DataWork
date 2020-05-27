@@ -96,7 +96,7 @@ gen agyr=.
 * 1989 - 30 year
 *1981 - 38 year (entire dataset)
 
-foreach i of num 2001/2019{
+foreach i of num 2008/2019{
 	replace agyr= `i'+1 if inrange(mdate, ym(`i', 6), ym(`i'+1,6))
 }
 
@@ -419,9 +419,43 @@ replace actual_season = 2019  if (date>=mdy(9,1,2018) & date<=mdy(04,31,2019)) &
 
 bysort HHID agyr: egen zero_rain=sum(zero_rainfall)
 
-order date agyr HHID camp zero_rain
+order date agyr HHID district camp zero_rain
+
+*max num of days without rain during agyr by HH by year
+collapse (max) zero_rain, by(HHID agyr district camp)
+drop if agyr > 2019
+rename agyr year
+rename camp camp3
+rename zero_rain daily_zero_rain
+
+*'encode' districts for merge
+replace district = "101" if district == "Mkushi"
+replace district = "102" if district == "Mumbwa"
+replace district = "201" if district == "Mpongwe"
+replace district = "202" if district == "Masaiti"
+replace district = "301" if district == "Lundazi"
+replace district = "302" if district == "Petauke"
+replace district = "401" if district == "Mbala"
+replace district = "402" if district == "Chinsali"
+replace district = "501" if district == "Mufumbwe"
+replace district = "502" if district == "Solwezi"
+replace district = "601" if district == "Choma"
+replace district = "602" if district == "Namwala"
+destring district, replace
+
+label define districts ///
+	101 "Mkushi" 102 "Mumbwa" ///
+	201 "Mpongwe" 202 "Masaiti" /// 
+	301 "Lundazi" 302 "Petauke" ///
+	401 "Mbala" 402 "Mungwi" ///
+	501 "Mufumbwe" 502 "Solwezi" ///
+	601 "Choma" 602 "Namwala"
+
+label values district districts
 
 save "daily0rainXhhid", replace
+
+
 
 
 
