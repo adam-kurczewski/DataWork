@@ -1114,7 +1114,7 @@ global varlist2_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXndrought preparedXndrought activityXndrought
+	creditXndrought
 	
 	
 
@@ -1230,7 +1230,7 @@ global varlist2_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_
 global varlist3_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXdroughtint preparedXdroughtint activityXdroughtint
+	creditXdroughtint
 	 											
 
 *******************************
@@ -1333,7 +1333,7 @@ global varlist2_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 
 global varlist3_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXdroughtfreq preparedXdroughtfreq activityXdroughtfreq
+	creditXdroughtfreq  
 	
 	
 ***************************************************************************************************************************
@@ -1476,7 +1476,7 @@ global varlist2_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 e
 global varlist3_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXnegz preparedXnegz activityXnegz
+	creditXnegz  
 	
 
 foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
@@ -1514,7 +1514,7 @@ global varlist2_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 
 global varlist3_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXzerorain preparedXzerorain activityXzerorain
+	creditXzerorain  
 	
 
 foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
@@ -1550,8 +1550,8 @@ global varlist2_negz_ndrought n_drought total_negz hh_head_age2 hh_head_sex2 hh_
 global varlist3_negz_ndrought n_drought total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXnegz preparedXnegz activityXnegz ///
-	creditXndrought preparedXndrought activityXndrought
+	creditXnegz   ///
+	creditXndrought 
 
 	
 foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
@@ -1587,8 +1587,8 @@ global varlist2_zerorain_droughtint droughtint daily_zero_rain hh_head_age2 hh_h
 global varlist3_zerorain_droughtint droughtint daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 ///
-	creditXzerorain preparedXzerorain activityXzerorain ///
-	creditXdroughtint preparedXdroughtint activityXdroughtint
+	creditXzerorain   ///
+	creditXdroughtint
 	
 
 foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
