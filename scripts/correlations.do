@@ -978,28 +978,39 @@ kdensity daily_zero_rain, ///
 *==================*
 
 *num droughts
-*cross tabulation
+asdoc table total_negz n_drought if year == 2019, ///
+	title(Table X: Perceived vs Actual Drought Incidence) ///
+	save(perceivedXactual.doc), replace
+	
+
 
 * drought lengths
-twoway scatter droughtint daily_zero_rain if year == 2019, jitter(6)
+twoway scatter droughtint daily_zero_rain if year == 2019, ///
+	jitter(6) ///
+	xlabel(0(5)30) ///
+	xtick(0(2.5)30) ///
+	ytick(0(25)150) ///
+	title(Perceived vs Actual Drought Lengths) ///
+	note()
+	
 
 *** Aspirations and Various Weather Shocks
 
 *Aspirations and Different Levels of Subjective Drought
 kdensity rank_land_10 if n_drought <= 1, ///
-	addplot(kdensity rank_land_10 if n_drought > 2) ///
+	addplot(kdensity rank_land_10 if n_drought > 1) ///
 	title(Land Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 Droughts") label(2 "2+ Droughts"))
+	legend(label(1 "1 or 0 droughts") label(2 "More than 1 drought"))
 	
 kdensity rank_livestock_10 if n_drought <= 1, ///
-	addplot(kdensity rank_livestock_10 if n_drought > 2) ///
+	addplot(kdensity rank_livestock_10 if n_drought > 1) ///
 	title(Livestock Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 Droughts") label(2 "2+ Droughts"))
+	legend(label(1 "1 or 0 droughts") label(2 "More than 1 drought"))
 
 kdensity rank_asset_10 if n_drought <= 1, ///
-	addplot(kdensity rank_asset_10 if n_drought > 2) ///
+	addplot(kdensity rank_asset_10 if n_drought > 1) ///
 	title(Asset Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 Droughts") label(2 "2+ Droughts"))
+	legend(label(1 "1 or 0 droughts") label(2 "More than 1 drought"))
 
 	
 * Asp and Subj Drought Length
