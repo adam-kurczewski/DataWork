@@ -885,15 +885,19 @@ cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
 
 
 *retain varlist including those vars not used in final speciifcation as a record of complete list
+gen prep = 0
+replace prep = 1 if prepared2 >= 1
+
 global varlist_master hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
-	rains2 prepared2 activities_drought2
+	rains2 prep activities_drought2
 
 
 asdoc sum $varlist_master if year == 2019, label ///
 	title(Table X: Summary Statitics) ///
 	save(master_sumtable.doc), replace
-	
+
+
 *******************
 
 *** Aspirations ***
@@ -1023,19 +1027,29 @@ kdensity rank_land_10 if droughtint < mean1, ///
 
 kdensity rank_livestock_10 if droughtint < mean1, ///
 	addplot(kdensity rank_livestock_10 if droughtint >= mean1) ///
-	title(Land Aspiraitons by Perceived Drought Length) ///
+	title(Livestock Aspiraitons by Perceived Drought Length) ///
 	legend(label(1 "Below Average Drougth Length") label(2 "Above Average Drought Length"))
 
 kdensity rank_asset_10 if droughtint < mean1, ///
 	addplot(kdensity rank_asset_10 if droughtint >= mean1) ///
-	title(Land Aspiraitons by Perceived Drought Length) ///
+	title(Asset Aspiraitons by Perceived Drought Length) ///
 	legend(label(1 "Below Average Drougth Length") label(2 "Above Average Drought Length"))
 
 	
 * Asp and Preparedness
 kdensity rank_land_10 if prepared2 == 0, ///
 	addplot(kdensity rank_land_10 if prepared2 == 1 || kdensity rank_land_10 if prepared2 == 2) ///
-	title(Aspirations and Level of Subjective Drought Preparedness) ///
+	title("Land Aspirations and" "Level of Subjective Drought Preparedness") ///
+	legend(label(1 "Not Prepared") label(2 "Somewhat Prepared") label(3 "Prepared"))
+	
+kdensity rank_livestock_10 if prepared2 == 0, ///
+	addplot(kdensity rank_livestock_10 if prepared2 == 1 || kdensity rank_livestock_10 if prepared2 == 2) ///
+	title("Livestock Aspirations and" "Level of Subjective Drought Preparedness") ///
+	legend(label(1 "Not Prepared") label(2 "Somewhat Prepared") label(3 "Prepared"))
+	
+kdensity rank_asset_10 if prepared2 == 0, ///
+	addplot(kdensity rank_asset_10 if prepared2 == 1 || kdensity rank_asset_10 if prepared2 == 2) ///
+	title("Asset Aspirations and" "Level of Subjective Drought Preparedness") ///
 	legend(label(1 "Not Prepared") label(2 "Somewhat Prepared") label(3 "Prepared"))
 	
 *=====================================================================================*
@@ -1054,21 +1068,21 @@ keep if year == 2019
 gen creditXndrought = credit2 * n_drought
 gen creditXdroughtint = credit2 * droughtint
 gen creditXdroughtfreq = credit2 * droughtfreq2
-gen creditXtnegz = credit2 * total_negz
+gen creditXnegz = credit2 * total_negz
 gen creditXzerorain = credit2 * daily_zero_rain
 
 * prepared
 gen preparedXndrought = prepared2 * n_drought
 gen preparedXdroughtint = prepared2 * droughtint
 gen preparedXdroughtfreq = prepared2 * droughtfreq
-gen preparedXtnegz = prepared2 * total_negz
+gen preparedXnegz = prepared2 * total_negz
 gen preparedXzerorain = prepared2 * daily_zero_rain
 
 * activities
 gen activityXndrought = activities_drought2 * n_drought
 gen activityXdroughtint = activities_drought2 * droughtint
 gen activityXdroughtfreq = activities_drought2 * droughtfreq
-gen activityXtnegz = activities_drought2 * total_negz
+gen activityXnegz = activities_drought2 * total_negz
 gen activityXzerorain = activities_drought2 * daily_zero_rain 
 
 
@@ -1273,7 +1287,8 @@ ologit change_asset n_drought $varlist3_ndrought i.district, or vce(cl HHID) bas
 															
 															
 															
-															
+cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\droughtint"		
+											
 * simple
 global varlist1_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
 
@@ -1426,6 +1441,8 @@ ologit change_asset droughtint $varlist3_droughtint i.district, or vce(cl HHID) 
 														***************************
 														* droughtfreq: asp levels *
 														***************************
+														
+cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\droughtfreq"
 														
 * simple
 global varlist1_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
@@ -1614,6 +1631,7 @@ reg droughtfreq2 i.rainfall_19 droughtint i.district, base
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\total_negz"
 
+
 * simple
 global varlist1_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
 
@@ -1644,8 +1662,6 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 		ctitle(" ") ///
 		keep($varlist3_negz) addtext(District FE, YES)
 }
-
-
 
 
 * DROUGHT LENGTH EQUIVALENT
@@ -1681,8 +1697,6 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 		ctitle(" ") ///
 		keep($varlist3_zerorain) addtext(District FE, YES)
 }
-
-
 
 
 
@@ -1761,7 +1775,7 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 
 
 
-
+/*
 * REPLICATING KOSEC 2017 - USING TOTAL SD FROM MEAN RAINFALL AS SHOCK
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\sdrain"
 
@@ -1797,7 +1811,31 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 		ctitle(" ") ///
 		keep ($varlist3_sdrain) addtext(District FE, YES) title(Table X.X:)
 }
+*/
 
+* coef dotplot
+quietly eststo perc_agg_ndrought: reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
+
+quietly eststo perc_asset_droughtint: reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID)
+
+quietly eststo actual_agg_negz: reg zaspirations_nolivestock total_negz $varlist3_negz i.district, vce(cl HHID)
+
+quietly eststo actual_agg_zerorain: reg zaspirations_nolivestock daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
+
+quietly eststo expec_agg: reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID)
+
+
+coefplot (perc_agg_ndrought perc_asset_droughtint actual_agg_negz actual_agg_zerorain expec_agg), ///
+	keep(n_drought droughtint total_negz daily_zero_rain droughtfreq2) ///
+	yline(0) ///
+	vertical ///
+	title("Regression Coefficients of Various" "Weather Shocks on Aspirations") ///
+	coeflabels(n_drought="perceived drought incidence" ///
+				droughtint="perceived drought length" ///
+				total_negz="actual drought incidence" ///
+				daily_zero_rain="actual drought length" ///
+				droughtfreq2="expected drought frequency", wrap(10)) 
+	
 **************************************************************************************************************************************
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
