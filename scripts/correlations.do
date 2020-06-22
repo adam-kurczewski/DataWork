@@ -1095,6 +1095,14 @@ global varlist_master n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 e
 	
 **********
 
+
+
+
+															************************
+															*** ndrought: levels ***
+															************************													
+cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\ndrought"
+
 * simple
 global varlist1_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father
 
@@ -1108,108 +1116,30 @@ global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 	rains2 prepared2 activities_drought2 ///
 	creditXndrought preparedXndrought activityXndrought
 	
-
-
-
-															************************
-															*** ndrought: levels ***
-															************************													
-cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\ndrought"													
+	
 
 									************
 									** SIMPLE **
 									************
+									
+foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zw_live_NOREP zweighted_aspirations_asset {
+	reg `var' $varlist1_ndrought i.district, vce(cl HHID) base
+		outreg2 using `var'Xndrought.doc, replace ///
+		ctitle(" ") ///
+		keep ($varlist1_ndrought) addtext(District FE, YES) title(Table X.X:)
+		
+	reg `var' $varlist2_ndrought i.district, vce(cl HHID) base
+		outreg2 using `var'Xndrought.doc, append ///
+		ctitle(" ") ///
+		keep ($varlist2_ndrought) addtext(District FE, YES) title(Table X.X:)
+		
+	reg `var' $varlist3_ndrought i.district, vce(cl HHID) base
+		outreg2 using `var'Xndrought.doc, append ///
+		ctitle(" ") ///
+		keep ($varlist3_ndrought) addtext(District FE, YES) title(Table X.X:)
+}
 
 
-** w/o livestock **
-reg zaspirations_nolivestock n_drought $varlist1_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT1.doc", label replace ///
-	ctitle(" ") ///
-	keep($varlist1_ndrought) addtext(District FE, YES) title(Table 2.1: Number of Droughts on Aspirations Level w/o Livestock)
-	
-reg zaspirations_nolivestock n_drought $varlist2_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT1.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist2_ndrought) addtext(District FE, YES) 
-	
-reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT1.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist3_ndrought) addtext(District FE, YES) 
-
-
-
-
-** individual dimension outcomes **
-*land
-reg zweighted_aspirations_land n_drought $varlist1_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT2.doc", label replace ///
-	ctitle(" ") ///
-	keep($varlist1_ndrought) addtext(District FE, YES) title(Table 2.2: Number of Droughts on Land Aspirations Level)
-	
-reg zweighted_aspirations_land n_drought $varlist2_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT2.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist2_ndrought) addtext(District FE, YES)
-	
-reg zweighted_aspirations_land n_drought $varlist3_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT2.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist3_ndrought) addtext(District FE, YES)
-
-
-
-* livestock
-reg zweighted_aspirations_livestock n_drought $varlist1_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT3.doc", label replace ///
-	ctitle(" ") ///
-	keep($varlist1_ndrought) addtext(District FE, YES) title(Table 2.3: Number of Droughts on Livestock Aspirations Level)
-	
-reg zweighted_aspirations_livestock n_drought $varlist2_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT3.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist2_ndrought) addtext(District FE, YES)
-	
-reg zweighted_aspirations_livestock n_drought $varlist3_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT3.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist3_ndrought) addtext(District FE, YES)
-
-	
-	
-*** no replace livestock test ***
-reg zw_live_NOREP n_drought $varlist1_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT-NOREP.doc", label replace ///
-	ctitle(" ") ///
-	keep($varlist1_ndrought) addtext(District FE, YES) title(Livestock: No Replace Test)
-	
-reg zw_live_NOREP n_drought $varlist2_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT-NOREP.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist2_ndrought) addtext(District FE, YES)  
-	
-reg zw_live_NOREP n_drought $varlist3_ndrought i.district, vce(cl HHID) base
-	outreg2 using "NDROUGHT-NOREP.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist3_ndrought) addtext(District FE, YES) 
-	
-
-
-* asset
-reg zweighted_aspirations_asset n_drought $varlist1_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT4.doc", label replace ///
-	ctitle(" ") ///
-	keep($varlist1_ndrought) addtext(District FE, YES) title(Table 2.4: Number of Droughts on Asset Aspirations Level)
-	
-reg zweighted_aspirations_asset n_drought $varlist2_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT4.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist2_ndrought) addtext(District FE, YES)
-	
-reg zweighted_aspirations_asset n_drought $varlist3_ndrought i.district, vce(cl HHID) base 
-	outreg2 using "NDROUGHT4.doc", label append ///
-	ctitle(" ") ///
-	keep($varlist3_ndrought) addtext(District FE, YES)
 
 	
 	
@@ -1305,75 +1235,23 @@ global varlist3_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_
 
 *******************************
 
-** w/o livestock **
-reg zaspirations_nolivestock droughtint $varlist1_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT1.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtint) addtext(District FE, YES) lab title(Table 4.1: Drought Length on Aspirations Level w/o Livestock)
-	
-reg zaspirations_nolivestock droughtint $varlist2_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT1.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtint) addtext(District FE, YES)
-	
-reg zaspirations_nolivestock droughtint $varlist3_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT1.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtint) addtext(District FE, YES)
 
-
-
-** individual dimension outcomes **
-*land
-reg zweighted_aspirations_land droughtint $varlist1_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT2.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtint) addtext(District FE, YES) lab title(Table 4.2: Drought Length on Land Aspirations Level)
-	
-reg zweighted_aspirations_land droughtint $varlist2_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT2.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtint) addtext(District FE, YES)
-	
-reg zweighted_aspirations_land droughtint $varlist3_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT2.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtint) addtext(District FE, YES)
-
-
-* livestock
-reg zweighted_aspirations_livestock droughtint $varlist1_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT3.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtint) addtext(District FE, YES) lab title(Table 4.3: Drought Length on Livestock Aspirations Level)
-	
-reg zweighted_aspirations_livestock droughtint $varlist2_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT3.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtint) addtext(District FE, YES)
-	
-reg zweighted_aspirations_livestock droughtint $varlist3_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT3.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtint) addtext(District FE, YES)
-	
-
-* asset
-reg zweighted_aspirations_asset droughtint $varlist1_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT4.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtint) addtext(District FE, YES) lab title(Table 4.4: Drought Length on Asset Aspirations Level)
-	
-reg zweighted_aspirations_asset droughtint $varlist2_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT4.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtint) addtext(District FE, YES)
-	
-reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTINT4.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtint) addtext(District FE, YES)
-
+foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+	reg `var' $varlist1_droughtint i.district, vce(cl HHID) base
+		outreg2 using `var'Xndroughtint.doc, replace ///
+		ctitle(" ") ///
+		keep ($varlist1_droughtint) addtext(District FE, YES) title(Table X.X:)
+		
+	reg `var' $varlist2_droughtint i.district, vce(cl HHID) base
+		outreg2 using `var'Xndroughtint.doc, append ///
+		ctitle(" ") ///
+		keep ($varlist2_droughtint) addtext(District FE, YES) title(Table X.X:)
+		
+	reg `var' $varlist3_droughtint i.district, vce(cl HHID) base
+		outreg2 using `var'Xndroughtint.doc, append ///
+		ctitle(" ") ///
+		keep ($varlist3_droughtint) addtext(District FE, YES) title(Table X.X:)
+}
 
 	
 	
@@ -1460,73 +1338,28 @@ global varlist3_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 
 	
 ***************************************************************************************************************************
 	
-** w/o livestock **
-reg zaspirations_nolivestock droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ1.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtfreq) addtext(District FE, YES) lab title(Table 6.1: Drought Frequency on Aspirations Level w/o Livestock)
 	
-reg zaspirations_nolivestock droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ1.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtfreq) addtext(District FE, YES)
-	
-reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ1.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtfreq) addtext(District FE, YES)
 
-	
-** by dimension
-* land
-reg zweighted_aspirations_land droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ2.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtfreq) addtext(District FE, YES) lab title(Table 6.2: Drought Frequency on Land Aspirations Level)
-	
-reg zweighted_aspirations_land droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ2.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtfreq) addtext(District FE, YES)
-	
-reg zweighted_aspirations_land droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ2.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtfreq) addtext(District FE, YES)
-	
-	
-* livestock
-reg zweighted_aspirations_livestock droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ3.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtfreq) addtext(District FE, YES) lab title(Table 6.3: Drought Frequency on Livestock Aspirations Level)
-	
-reg zweighted_aspirations_livestock droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ3.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtfreq) addtext(District FE, YES)
-	
-reg zweighted_aspirations_livestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ3.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtfreq) addtext(District FE, YES)
+foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+	reg `var' $varlist1_droughtfreq i.district, vce(cl HHID) base
+		outreg2 using `var'Xdroughtfreq.doc, replace ///
+		ctitle(" ") ///
+		keep($varlist1_droughtfreq) addtext(District FE, YES) lab title(Table X.X:)
+		
+	reg `var' $varlist2_droughtfreq i.district, vce(cl HHID) base
+		outreg2 using `var'Xdroughtfreq.doc, append ///
+		ctitle(" ") ///
+		keep($varlist2_droughtfreq) addtext(District FE, YES)
+		
+	reg `var' $varlist3_droughtfreq i.district, vce(cl HHID) base
+		outreg2 using `var'Xdroughtfreq.doc, append ///
+		ctitle(" ") ///
+		keep($varlist3_droughtfreq) addtext(District FE, YES)
+}
 
-	
-* assets
-reg zweighted_aspirations_asset droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ4.doc", replace ///
-	ctitle(" ") ///
-	keep($varlist1_droughtfreq) addtext(District FE, YES) lab title(Table 6.4: Drought Frequency on Asset Aspirations Level)
-	
-reg zweighted_aspirations_asset droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ4.doc", append ///
-	ctitle(" ") ///
-	keep($varlist2_droughtfreq) addtext(District FE, YES)
-	
-reg zweighted_aspirations_asset droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) base
-	outreg2 using "DROUGHTFREQ4.doc", append ///
-	ctitle(" ") ///
-	keep($varlist3_droughtfreq) addtext(District FE, YES)
+
+
+
 	
 	
 /*
@@ -1647,21 +1480,24 @@ global varlist3_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 e
 	
 
 foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
-	reg `var' total_negz $varlist1_negz i.district, vce(cl HHID) base
+	reg `var' $varlist1_negz i.district, vce(cl HHID) base
 		outreg2 using `var'Xnegz10yr.doc, replace ///
 		ctitle(" ") ///
 		keep($varlist1_negz) addtext(District FE, YES) lab title(Table X.X:)
 		
-	reg `var' total_negz $varlist2_negz i.district, vce(cl HHID) base
+	reg `var' $varlist2_negz i.district, vce(cl HHID) base
 		outreg2 using `var'Xnegz10yr.doc, append ///
 		ctitle(" ") ///
 		keep($varlist2_negz) addtext(District FE, YES)
 		
-	reg `var' total_negz $varlist3_negz i.district, vce(cl HHID) base
+	reg `var' $varlist3_negz i.district, vce(cl HHID) base
 		outreg2 using `var'Xnegz10yr.doc, append ///
 		ctitle(" ") ///
 		keep($varlist3_negz) addtext(District FE, YES)
 }
+
+
+
 
 
 * DROUGHT LENGTH EQUIVALENT
@@ -1682,17 +1518,17 @@ global varlist3_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 
 	
 
 foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
-	reg `var' daily_zero_rain $varlist1_zerorain i.district, vce(cl HHID) base
+	reg `var' $varlist1_zerorain i.district, vce(cl HHID) base
 		outreg2 using `var'Xnorain.doc, replace ///
 		ctitle(" ") ///
 		keep($varlist1_zerorain) addtext(District FE, YES) lab title(Table X.X:)
 		
-	reg `var' daily_zero_rain $varlist2_zerorain i.district, vce(cl HHID) base
+	reg `var' $varlist2_zerorain i.district, vce(cl HHID) base
 		outreg2 using `var'Xnorain.doc, append ///
 		ctitle(" ") ///
 		keep($varlist2_zerorain) addtext(District FE, YES)
 		
-	reg `var' daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID) base
+	reg `var' $varlist3_zerorain i.district, vce(cl HHID) base
 		outreg2 using `var'Xnorain.doc, append ///
 		ctitle(" ") ///
 		keep($varlist3_zerorain) addtext(District FE, YES)
@@ -1777,6 +1613,7 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 
 /*
 * REPLICATING KOSEC 2017 - USING TOTAL SD FROM MEAN RAINFALL AS SHOCK
+
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\sdrain"
 
 
