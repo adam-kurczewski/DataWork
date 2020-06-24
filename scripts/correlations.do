@@ -888,9 +888,12 @@ cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
 gen prep = 0
 replace prep = 1 if prepared2 >= 1
 
+label var droughtfreq2 "Expected Drought Frequency"
+
 global varlist_master hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
-	rains2 prep activities_drought2
+	rains2 prep activities_drought2 ///
+	droughtfreq2
 
 
 asdoc sum $varlist_master if year == 2019, label ///
@@ -997,7 +1000,15 @@ twoway scatter droughtint daily_zero_rain if year == 2019, ///
 	title(Perceived vs Actual Drought Lengths) ///
 	note()
 	
+*droughtfreq and prep
+kdensity droughtfreq2 if prepared2 == 0, ///
+	addplot(kdensity droughtfreq2 if prepared2 > 0) ///
+	title("Drought Expectations and" "Level of Subjective Drought Preparedness") ///
+	legend(label(1 "Not Prepared") label(2 "Prepared"))
 
+	
+	
+	
 *** Aspirations and Various Weather Shocks
 
 *Aspirations and Different Levels of Subjective Drought
