@@ -1012,20 +1012,20 @@ kdensity droughtfreq2 if prepared2 == 0, ///
 *** Aspirations and Various Weather Shocks
 
 *Aspirations and Different Levels of Subjective Drought
-kdensity rank_land_10 if n_drought <= 1, ///
-	addplot(kdensity rank_land_10 if n_drought > 1) ///
+kdensity rank_land_10 if n_drought < 1, ///
+	addplot(kdensity rank_land_10 if n_drought >= 1) ///
 	title(Land Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "More than 1 drought"))
+	legend(label(1 "1 or 0 droughts") label(2 "1 or More droughts"))
 	
-kdensity rank_livestock_10 if n_drought <= 1, ///
-	addplot(kdensity rank_livestock_10 if n_drought > 1) ///
+kdensity rank_livestock_10 if n_drought < 1, ///
+	addplot(kdensity rank_livestock_10 if n_drought >=1) ///
 	title(Livestock Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "More than 1 drought"))
+	legend(label(1 "1 or 0 droughts") label(2 "1 or More droughts"))
 
-kdensity rank_asset_10 if n_drought <= 1, ///
-	addplot(kdensity rank_asset_10 if n_drought > 1) ///
+kdensity rank_asset_10 if n_drought < 1, ///
+	addplot(kdensity rank_asset_10 if n_drought >= 1) ///
 	title(Asset Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "More than 1 drought"))
+	legend(label(1 "No droughts") label(2 "1 or More droughts"))
 
 	
 * Asp and Subj Drought Length
@@ -1046,6 +1046,52 @@ kdensity rank_asset_10 if droughtint < mean1, ///
 	title(Asset Aspiraitons by Perceived Drought Length) ///
 	legend(label(1 "Below Average Drougth Length") label(2 "Above Average Drought Length"))
 
+	
+	
+	
+	
+	
+	
+*Aspirations and Different Levels of Objective Drought
+kdensity rank_land_10 if total_negz < 1, ///
+	addplot(kdensity rank_land_10 if total_negz >= 1) ///
+	title(Land Aspiraitons by Actual Droughts) ///
+	legend(label(1 "1 or 0 droughts") label(2 "1 or More Droughts"))
+	
+kdensity rank_livestock_10 if total_negz < 1, ///
+	addplot(kdensity rank_livestock_10 if total_negz >= 1) ///
+	title(Livestock Aspiraitons by Actual Droughts) ///
+	legend(label(1 "1 or 0 droughts") label(2 "1 or More Droughts"))
+
+kdensity rank_asset_10 if total_negz < 1, ///
+	addplot(kdensity rank_asset_10 if total_negz >= 1) ///
+	title(Asset Aspiraitons by Actual Droughts) ///
+	legend(label(1 "1 or 0 droughts") label(2 "1 or More Droughts"))	
+	
+	
+* Asp and Subj Drought Length
+sum daily_zero_rain
+scalar mean2 = r(mean)
+kdensity rank_land_10 if daily_zero_rain < mean2, ///
+	addplot(kdensity rank_land_10 if daily_zero_rain >= mean2) ///
+	title(Land Aspiraitons by Actual Drought Length) ///
+	legend(label(1 "Below Average Drougth Length") label(2 "Above Average Drought Length"))
+
+kdensity rank_livestock_10 if daily_zero_rain < mean2, ///
+	addplot(kdensity rank_livestock_10 if daily_zero_rain >= mean2) ///
+	title(Livestock Aspiraitons by Actual Drought Length) ///
+	legend(label(1 "Below Average Drougth Length") label(2 "Above Average Drought Length"))
+
+kdensity rank_asset_10 if daily_zero_rain < mean2, ///
+	addplot(kdensity rank_asset_10 if daily_zero_rain >= mean2) ///
+	title(Asset Aspiraitons by Actual Drought Length) ///
+	legend(label(1 "Below Average Drougth Length") label(2 "Above Average Drought Length"))
+	
+	
+
+	
+	
+	
 	
 * Asp and Preparedness
 kdensity rank_land_10 if prepared2 == 0, ///
@@ -1453,6 +1499,7 @@ reg droughtint rains2 prepared2 activities_drought2 forecast_use2 i.district, ba
 reg droughtfreq2 rains2 prepared2 activities_drought2 forecast_use2 i.district, base
 	outreg2 using "droughtXprepared.doc", append ///
 	keep(rains2 prepared2 activities_drought2 forecast_use2) addtext(District FE, YES)
+	
 	
 reg droughtfreq2 i.rainfall_19 droughtint i.district, base
 	outreg2 using "droughtfreqXweather.doc", replace ///
