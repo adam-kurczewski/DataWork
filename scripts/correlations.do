@@ -1015,12 +1015,12 @@ kdensity droughtfreq2 if prepared2 == 0, ///
 kdensity rank_land_10 if n_drought < 1, ///
 	addplot(kdensity rank_land_10 if n_drought >= 1) ///
 	title(Land Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "1 or More droughts"))
+	legend(label(1 "No droughts") label(2 "1 or More droughts"))
 	
 kdensity rank_livestock_10 if n_drought < 1, ///
 	addplot(kdensity rank_livestock_10 if n_drought >=1) ///
 	title(Livestock Aspiraitons by Perceived Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "1 or More droughts"))
+	legend(label(1 "No droughts") label(2 "1 or More droughts"))
 
 kdensity rank_asset_10 if n_drought < 1, ///
 	addplot(kdensity rank_asset_10 if n_drought >= 1) ///
@@ -1056,17 +1056,17 @@ kdensity rank_asset_10 if droughtint < mean1, ///
 kdensity rank_land_10 if total_negz < 1, ///
 	addplot(kdensity rank_land_10 if total_negz >= 1) ///
 	title(Land Aspiraitons by Actual Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "1 or More Droughts"))
+	legend(label(1 "No droughts") label(2 "1 or More Droughts"))
 	
 kdensity rank_livestock_10 if total_negz < 1, ///
 	addplot(kdensity rank_livestock_10 if total_negz >= 1) ///
 	title(Livestock Aspiraitons by Actual Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "1 or More Droughts"))
+	legend(label(1 "No droughts") label(2 "1 or More Droughts"))
 
 kdensity rank_asset_10 if total_negz < 1, ///
 	addplot(kdensity rank_asset_10 if total_negz >= 1) ///
 	title(Asset Aspiraitons by Actual Droughts) ///
-	legend(label(1 "1 or 0 droughts") label(2 "1 or More Droughts"))	
+	legend(label(1 "No droughts") label(2 "1 or More Droughts"))	
 	
 	
 * Asp and Subj Drought Length
@@ -1089,10 +1089,62 @@ kdensity rank_asset_10 if daily_zero_rain < mean2, ///
 	
 	
 
+* perceived, actual, and expected drought ~ preparedness
+
+quietly reg n_drought prepared2 i.district if year == 2019
+	outreg2 using droughtXprepared.doc, replace ///
+	ctitle("Perceived Number" "of Droughts") ///
+	keep (prepared2) addtext(District FE, YES) title(Table X.X:)
 	
+quietly reg droughtint prepared2 i.district  if year == 2019
+	outreg2 using droughtXprepared.doc, append ///
+	ctitle("Perceived" "Drought Length") ///
+	keep (prepared2) title(Table X.X:)
 	
+quietly reg total_negz prepared2 i.district if year == 2019
+	outreg2 using droughtXprepared.doc, append ///
+	ctitle("Actual Number" "of Droughts") ///
+	keep (prepared2) title(Table X.X:)
 	
+quietly reg daily_zero_rain prepared2 i.district if year == 2019
+	outreg2 using droughtXprepared.doc, append ///
+	ctitle("Actual" "Drought Length") ///
+	keep (prepared2) title(Table X.X:)
 	
+quietly reg droughtfreq2 prepared2 i.district if year == 2019
+	outreg2 using droughtXprepared.doc, append ///
+	ctitle("Drought Expectations") ///
+	keep (prepared2) title(Table X.X:)
+	
+
+		
+
+
+
+* perceived and actual drought ~ expected drought
+quietly reg n_drought droughtfreq2 i.district if year == 2019
+	outreg2 using droughtXexpect.doc, replace ///
+	ctitle("Perceived Number" "of Droughts") ///
+	keep (droughtfreq2) addtext(District FE, YES) title(Table X.X:)
+	
+quietly reg droughtint droughtfreq2 i.district if year == 2019
+	outreg2 using droughtXexpect.doc, append ///
+	ctitle("Perceived" "Drought Length") ///
+	keep (droughtfreq2) title(Table X.X:)
+	
+quietly reg total_negz droughtfreq2 i.district if year == 2019
+	outreg2 using droughtXexpect.doc, append ///
+	ctitle("Actual Number" "of Droughts") ///
+	keep (droughtfreq2) title(Table X.X:)
+	
+quietly reg daily_zero_rain droughtfreq2 i.district if year == 2019
+	outreg2 using droughtXexpect.doc, append ///
+	ctitle("Actual" "Drought Length") ///
+	keep (droughtfreq2) title(Table X.X:)
+
+
+	
+
 * Asp and Preparedness
 kdensity rank_land_10 if prepared2 == 0, ///
 	addplot(kdensity rank_land_10 if prepared2 == 1 || kdensity rank_land_10 if prepared2 == 2) ///
