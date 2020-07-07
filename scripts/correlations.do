@@ -974,7 +974,33 @@ kdensity daily_zero_rain, ///
 	title(Objective Drought Length) ///
 	note(x axis tick marks in 7-day intervals)
 
+* both drought length measures
+kdensity daily_zero_rain, ///
+	addplot(kdensity droughtint) ///
+	xlabel(0(14)105) ///
+	xtick(0(7)105) ///
+	title(Drought Length) ///
+	note(x axis tick marks in 7-day intervals) ///
+	legend(label(1 "CHIRPS") label(2 "HICPS"))
+	
+	
+* tables
 
+sort HHID year
+bysort HHID: egen n_drought_nonpred = total(drought)
+
+
+asdoc table drought year, ///
+	center title(Raw HICPS Drought Status) ///
+	save(droughtXyear)
+
+asdoc table drought2 year, ///
+	center title(Predicted HICPS Drought Status) ///
+	save(preddroughtXyear)
+	
+asdoc table negz year, ///
+	center title(CHIRPS Drought Status) ///
+	save(chirpsdroughtXyear)
 
 
 
@@ -1646,6 +1672,8 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 
 
 
+
+
 * BOTH MEASURES OF NUM OF DROUGHTS
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals\negz_ndrought"
 
@@ -1782,11 +1810,101 @@ coefplot (perc_agg_ndrought perc_asset_droughtint actual_agg_negz actual_agg_zer
 				total_negz="actual drought incidence" ///
 				daily_zero_rain="actual drought length" ///
 				droughtfreq2="expected drought frequency", wrap(10)) 
+				
+
+quietly eststo ndrought1: reg zaspirations_nolivestock n_drought $varlist1_ndrought i.district, vce(cl HHID) 
+quietly eststo ndrought2: reg zaspirations_nolivestock n_drought $varlist2_ndrought i.district, vce(cl HHID) 
+quietly eststo ndrought3: reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
+
+quietly eststo droughtint1: reg zweighted_aspirations_asset droughtint $varlist1_droughtint i.district, vce(cl HHID)
+quietly eststo droughtint2: reg zweighted_aspirations_asset droughtint $varlist2_droughtint i.district, vce(cl HHID)
+quietly eststo droughtint3: reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID)
+
+coefplot (ndrought1, label(model 1)) (ndrought2, label(model 2)) (ndrought3, label(model 3)), ///
+		keep(n_drought) ///
+		yline(0) ///
+		vertical ///
+		rename(n_drought="Subjective Drought Incidence") ///
+		title("Perceptions of Drought Incidence")
+		
+coefplot (droughtint1, label(model 1)) (droughtint2, label(model 2)) (droughtint3, label(model 3)), ///
+		keep(droughtint) ///
+		yline(0) ///
+		vertical ///
+		rename(droughtint="Subjective Drought Length") ///
+		title("Perceptions of Drought Length")
+
+	
+	
+quietly eststo total_negz1: reg zaspirations_nolivestock total_negz $varlist1_total_negz i.district, vce(cl HHID) 
+quietly eststo total_negz2: reg zaspirations_nolivestock total_negz $varlist2_total_negz i.district, vce(cl HHID) 
+quietly eststo total_negz3: reg zaspirations_nolivestock total_negz $varlist3_total_negz i.district, vce(cl HHID) 
+
+quietly eststo zerorain1: reg zaspirations_nolivestock daily_zero_rain $varlist1_zerorain i.district, vce(cl HHID)
+quietly eststo zerorain2: reg zaspirations_nolivestock daily_zero_rain $varlist2_zerorain i.district, vce(cl HHID)
+quietly eststo zerorain3: reg zaspirations_nolivestock daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
+
+coefplot (total_negz1, label(model 1)) (total_negz2, label(model 2)) (total_negz3, label(model 3)), ///
+		keep(total_negz) ///
+		yline(0) ///
+		vertical ///
+		rename(total_negz="Objective Drought Incidence") ///
+		title("Actual Drought Incidence")
+		
+coefplot (zerorain1, label(model 1)) (zerorain2, label(model 2)) (zerorain3, label(model 3)), ///
+		keep(daily_zero_rain) ///
+		yline(0) ///
+		vertical ///
+		rename(daily_zero_rain="Objective Drought Length") ///
+		title("Actual Drought Length")
+
+
+
+			
+quietly eststo droughtfreq1: reg zaspirations_nolivestock droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) 
+quietly eststo droughtfreq2: reg zaspirations_nolivestock droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) 
+quietly eststo droughtfreq3: reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) 
+
+coefplot (droughtfreq1, label(model 1)) (droughtfreq2, label(model 2)) (droughtfreq3, label(model 3)), ///
+		keep(droughtfreq2) ///
+		yline(0) ///
+		vertical ///
+		rename(droughtfreq2="Drought Frequency") ///
+		title("Expectations of Future Drought")
+
 	
 **************************************************************************************************************************************
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 
+
+
+* presentation tables
+reg zaspirations_nolivestock $varlist3_negz i.district, vce(cl HHID)
+	outreg2 using "results_textable", tex replace ///
+	ctitle("CHIRPS Drought" "Incidence") ///
+	keep(total_negz) addtext(District FE, YES)
+	
+reg zaspirations_nolivestock $varlist3_zerorain i.district, vce(cl HHID)
+	outreg2 using "results_textable", tex append ///
+	ctitle("CHIRPS Drought" "Length") ///
+	keep(daily_zero_rain) addtext(District FE, YES)
+	
+reg zaspirations_nolivestock $varlist3_ndrought i.district, vce(cl HHID)
+	outreg2 using "results_textable", tex append ///
+	ctitle("CHIPRS Drought" "Length") ///
+	keep(n_drought) addtext(District FE, YES)
+	
+reg zaspirations_nolivestock $varlist3_droughtint i.district, vce(cl HHID)
+	outreg2 using "results_textable", tex append ///
+	ctitle("CHIPRS Drought" "Length") ///
+	keep(droughtint) addtext(District FE, YES)
+	
+reg zaspirations_nolivestock $varlist3_droughtfreq i.district, vce(cl HHID)
+	outreg2 using "results_textable", tex append ///
+	ctitle("HICPS Drought" "Length") ///
+	keep(droughtfreq2) addtext(District FE, YES)
+	
 
 
 
