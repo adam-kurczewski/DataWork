@@ -871,7 +871,7 @@ joinby HHID district camp3 year using "daily0rainXhhid", _merge(merge_daily) unm
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Data"
 save "HICPS-preresults", replace
-*use HICPS-preresults, clear
+use HICPS-preresults, clear
 
 cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
 
@@ -926,9 +926,9 @@ label var weighted_importance_assets "Asset Importance"
 
 ***********************
 
-label var n_drought "Subjective Number of Droughts"
+label var n_drought "HICPS Drought Incidence"
 label var droughtint "Subjective Drougth Length"
-label var total_negz "CHIRPS Number of Droughts"
+label var total_negz "CHIRPS Drought Incidence"
 label var daily_zero_rain "CHIRPS Drought Length"
 label var district "District"
 
@@ -1002,6 +1002,10 @@ asdoc table negz year, ///
 	center title(CHIRPS Drought Status) ///
 	save(chirpsdroughtXyear)
 
+
+asdoc table total_negz n_drought, ///
+	center title(CHIRPS & HICPS Drought Incidence) ///
+	save(ndroughtcrosstab.doc) replace
 
 
 *==================*
@@ -1789,83 +1793,99 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 */
 
 * coef dotplot
-quietly eststo perc_agg_ndrought: reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
+foreach var in n_drought droughtint total_negz daily_zero_rain droughtfreq2 {
+	sum `var'
+	g sd_`var' = (`var' - r(mean))/r(sd)
+}
+	
+	
+quietly eststo perc_agg_ndrought: reg zaspirations_nolivestock sd_n_drought $varlist3_ndrought i.district, vce(cl HHID) 
 
-quietly eststo perc_asset_droughtint: reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID)
+quietly eststo perc_asset_droughtint: reg zweighted_aspirations_asset sd_droughtint $varlist3_droughtint i.district, vce(cl HHID)
 
-quietly eststo actual_agg_negz: reg zaspirations_nolivestock total_negz $varlist3_negz i.district, vce(cl HHID)
+quietly eststo actual_agg_negz: reg zaspirations_nolivestock sd_total_negz $varlist3_negz i.district, vce(cl HHID)
 
-quietly eststo actual_agg_zerorain: reg zaspirations_nolivestock daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
+quietly eststo actual_agg_zerorain: reg zaspirations_nolivestock sd_daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
 
-quietly eststo expec_agg: reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID)
+quietly eststo expec_agg: reg zaspirations_nolivestock sd_droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID)
 
 
-coefplot (perc_agg_ndrought perc_asset_droughtint actual_agg_negz actual_agg_zerorain expec_agg), ///
-	keep(n_drought droughtint total_negz daily_zero_rain droughtfreq2) ///
+coefplot (actual_agg_negz actual_agg_zerorain perc_agg_ndrought perc_asset_droughtint   expec_agg), ///
+	keep(sd_n_drought sd_droughtint sd_total_negz sd_daily_zero_rain sd_droughtfreq2) ///
 	yline(0) ///
 	vertical ///
 	title("Regression Coefficients of Various" "Weather Shocks on Aspirations") ///
-	coeflabels(n_drought="perceived drought incidence" ///
-				droughtint="perceived drought length" ///
-				total_negz="actual drought incidence" ///
-				daily_zero_rain="actual drought length" ///
-				droughtfreq2="expected drought frequency", wrap(10)) 
+	coeflabels(sd_n_drought="HICPS drought incidence" ///
+				sd_droughtint="HICPS drought length" ///
+				sd_total_negz="CHIRPS drought incidence" ///
+				sd_daily_zero_rain="CHIRPS drought length" ///
+				sd_droughtfreq2="Drought frequency", wrap(10)) ///
+	note(Drought variables standardized prior to plotting for comparison of coefficients)
 				
 
-quietly eststo ndrought1: reg zaspirations_nolivestock n_drought $varlist1_ndrought i.district, vce(cl HHID) 
-quietly eststo ndrought2: reg zaspirations_nolivestock n_drought $varlist2_ndrought i.district, vce(cl HHID) 
-quietly eststo ndrought3: reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
+				
+quietly eststo total_negz1: reg zaspirations_nolivestock total_negz $varlist1_negz i.district, vce(cl HHID) 
+quietly eststo total_negz2: reg zaspirations_nolivestock total_negz $varlist2_negz i.district, vce(cl HHID) 
+reg zaspirations_nolivestock total_negz $varlist3_negz i.district, vce(cl HHID) 
+eststo total_negz3: lincom total_negz - creditXnegz
 
-quietly eststo droughtint1: reg zweighted_aspirations_asset droughtint $varlist1_droughtint i.district, vce(cl HHID)
-quietly eststo droughtint2: reg zweighted_aspirations_asset droughtint $varlist2_droughtint i.district, vce(cl HHID)
-quietly eststo droughtint3: reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID)
-
-coefplot (ndrought1, label(model 1)) (ndrought2, label(model 2)) (ndrought3, label(model 3)), ///
-		keep(n_drought) ///
-		yline(0) ///
-		vertical ///
-		rename(n_drought="Subjective Drought Incidence") ///
-		title("Perceptions of Drought Incidence")
-		
-coefplot (droughtint1, label(model 1)) (droughtint2, label(model 2)) (droughtint3, label(model 3)), ///
-		keep(droughtint) ///
-		yline(0) ///
-		vertical ///
-		rename(droughtint="Subjective Drought Length") ///
-		title("Perceptions of Drought Length")
-
-	
-	
-quietly eststo total_negz1: reg zaspirations_nolivestock total_negz $varlist1_total_negz i.district, vce(cl HHID) 
-quietly eststo total_negz2: reg zaspirations_nolivestock total_negz $varlist2_total_negz i.district, vce(cl HHID) 
-quietly eststo total_negz3: reg zaspirations_nolivestock total_negz $varlist3_total_negz i.district, vce(cl HHID) 
-
-quietly eststo zerorain1: reg zaspirations_nolivestock daily_zero_rain $varlist1_zerorain i.district, vce(cl HHID)
-quietly eststo zerorain2: reg zaspirations_nolivestock daily_zero_rain $varlist2_zerorain i.district, vce(cl HHID)
-quietly eststo zerorain3: reg zaspirations_nolivestock daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
-
-coefplot (total_negz1, label(model 1)) (total_negz2, label(model 2)) (total_negz3, label(model 3)), ///
+coefplot (total_negz1, label("Demographics")) (total_negz2, label("Coping" "Ability")) (total_negz3, label("Weather Expectations" "& Interactions")), ///
 		keep(total_negz) ///
 		yline(0) ///
 		vertical ///
 		rename(total_negz="Objective Drought Incidence") ///
 		title("Actual Drought Incidence")
 		
-coefplot (zerorain1, label(model 1)) (zerorain2, label(model 2)) (zerorain3, label(model 3)), ///
+		
+
+quietly eststo zerorain1: reg zaspirations_nolivestock daily_zero_rain $varlist1_zerorain i.district, vce(cl HHID)
+quietly eststo zerorain2: reg zaspirations_nolivestock daily_zero_rain $varlist2_zerorain i.district, vce(cl HHID)
+reg zaspirations_nolivestock daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
+eststo zerorain3: lincom daily_zero_rain - creditXzerorain 
+
+coefplot (zerorain1, label("Demographics")) (zerorain2, label("Coping" "Ability")) (zerorain3, label("Weather Expectations" "and Interactions")), ///
 		keep(daily_zero_rain) ///
 		yline(0) ///
 		vertical ///
 		rename(daily_zero_rain="Objective Drought Length") ///
 		title("Actual Drought Length")
+				
+				
+				
+quietly eststo ndrought1: reg zaspirations_nolivestock n_drought $varlist1_ndrought i.district, vce(cl HHID) 
+quietly eststo ndrought2: reg zaspirations_nolivestock n_drought $varlist2_ndrought i.district, vce(cl HHID) 
+quietly reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
+eststo ndrought3: lincom n_drought - creditXndrought
+
+coefplot (ndrought1, label("Demographics")) (ndrought2, label("Coping" "Ability")) (ndrought3, label("Weather Expectations" "& Interactions")), ///
+		keep(n_drought) ///
+		yline(0) ///
+		vertical ///
+		rename(n_drought="Subjective Drought Incidence") ///
+		title("Perceptions of Drought Incidence")
+	
+	
+
+quietly eststo droughtint1: reg zweighted_aspirations_asset droughtint $varlist1_droughtint i.district, vce(cl HHID)
+quietly eststo droughtint2: reg zweighted_aspirations_asset droughtint $varlist2_droughtint i.district, vce(cl HHID)
+reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID)
+eststo droughtint3: lincom droughtint - creditXdroughtint
+
+coefplot (droughtint1, label("Demographics")) (droughtint2, label("Coping" "Ability")) (droughtint3, label("Weather Expectations" "& Interactions")), ///
+		keep(droughtint) ///
+		yline(0) ///
+		vertical ///
+		rename(droughtint="Subjective Drought Length") ///
+		title("Perceptions of Drought Length")
 
 
-
-			
+		
 quietly eststo droughtfreq1: reg zaspirations_nolivestock droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) 
 quietly eststo droughtfreq2: reg zaspirations_nolivestock droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) 
-quietly eststo droughtfreq3: reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) 
+reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) 
+eststo droughtfreq3: lincom droughtfreq2 - creditXdroughtfreq
 
-coefplot (droughtfreq1, label(model 1)) (droughtfreq2, label(model 2)) (droughtfreq3, label(model 3)), ///
+coefplot (droughtfreq1, label(Demographics)) (droughtfreq2, label("Coping" "Ability")) (droughtfreq3, label("Weather Expectations" "and Interactions")), ///
 		keep(droughtfreq2) ///
 		yline(0) ///
 		vertical ///
