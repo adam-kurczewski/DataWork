@@ -1792,23 +1792,18 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 }
 */
 
+
 * coef dotplot
 foreach var in n_drought droughtint total_negz daily_zero_rain droughtfreq2 {
 	sum `var'
 	g sd_`var' = (`var' - r(mean))/r(sd)
-}
-	
+}	
 	
 quietly eststo perc_agg_ndrought: reg zaspirations_nolivestock sd_n_drought $varlist3_ndrought i.district, vce(cl HHID) 
-
 quietly eststo perc_asset_droughtint: reg zweighted_aspirations_asset sd_droughtint $varlist3_droughtint i.district, vce(cl HHID)
-
 quietly eststo actual_agg_negz: reg zaspirations_nolivestock sd_total_negz $varlist3_negz i.district, vce(cl HHID)
-
 quietly eststo actual_agg_zerorain: reg zaspirations_nolivestock sd_daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
-
 quietly eststo expec_agg: reg zaspirations_nolivestock sd_droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID)
-
 
 coefplot (actual_agg_negz actual_agg_zerorain perc_agg_ndrought perc_asset_droughtint   expec_agg), ///
 	keep(sd_n_drought sd_droughtint sd_total_negz sd_daily_zero_rain sd_droughtfreq2) ///
@@ -1823,74 +1818,89 @@ coefplot (actual_agg_negz actual_agg_zerorain perc_agg_ndrought perc_asset_droug
 	note(Drought variables standardized prior to plotting for comparison of coefficients)
 				
 
-				
+*				
 quietly eststo total_negz1: reg zaspirations_nolivestock total_negz $varlist1_negz i.district, vce(cl HHID) 
-quietly eststo total_negz2: reg zaspirations_nolivestock total_negz $varlist2_negz i.district, vce(cl HHID) 
+quietly eststo total_negz2: reg zaspirations_nolivestock total_negz $varlist2_negz i.district, vce(cl HHID)
 reg zaspirations_nolivestock total_negz $varlist3_negz i.district, vce(cl HHID) 
-eststo total_negz3: lincom total_negz - creditXnegz
+qui sum credit2 if e(sample)
+local mean1 = r(mean)
+eststo total_negz3: lincom total_negz - creditXnegz*`mean1'
 
 coefplot (total_negz1, label("Demographics")) (total_negz2, label("Coping" "Ability")) (total_negz3, label("Weather Expectations" "& Interactions")), ///
 		keep(total_negz) ///
 		yline(0) ///
 		vertical ///
 		rename(total_negz="Objective Drought Incidence") ///
-		title("Actual Drought Incidence")
+		title("Actual Drought Incidence") ///
+		note("marginal effect of model 3 shown")
 		
 		
-
+*
 quietly eststo zerorain1: reg zaspirations_nolivestock daily_zero_rain $varlist1_zerorain i.district, vce(cl HHID)
 quietly eststo zerorain2: reg zaspirations_nolivestock daily_zero_rain $varlist2_zerorain i.district, vce(cl HHID)
 reg zaspirations_nolivestock daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
-eststo zerorain3: lincom daily_zero_rain - creditXzerorain 
+qui sum credit2 if e(sample)
+local mean2 = r(mean)
+eststo zerorain3: lincom daily_zero_rain + creditXzerorain*`mean2' 
 
 coefplot (zerorain1, label("Demographics")) (zerorain2, label("Coping" "Ability")) (zerorain3, label("Weather Expectations" "and Interactions")), ///
 		keep(daily_zero_rain) ///
 		yline(0) ///
 		vertical ///
 		rename(daily_zero_rain="Objective Drought Length") ///
-		title("Actual Drought Length")
+		title("Actual Drought Length") ///
+		note("marginal effect of model 3 shown")
 				
 				
-				
+*				
 quietly eststo ndrought1: reg zaspirations_nolivestock n_drought $varlist1_ndrought i.district, vce(cl HHID) 
-quietly eststo ndrought2: reg zaspirations_nolivestock n_drought $varlist2_ndrought i.district, vce(cl HHID) 
-quietly reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
-eststo ndrought3: lincom n_drought - creditXndrought
+quietly eststo ndrought2: reg zaspirations_nolivestock n_drought $varlist2_ndrought i.district, vce(cl HHID)
+reg zaspirations_nolivestock n_drought $varlist3_ndrought i.district, vce(cl HHID) 
+qui sum credit2 if e(sample)
+local mean3 = r(mean)
+eststo ndrought3: lincom n_drought + creditXndrought*`mean3'
 
 coefplot (ndrought1, label("Demographics")) (ndrought2, label("Coping" "Ability")) (ndrought3, label("Weather Expectations" "& Interactions")), ///
 		keep(n_drought) ///
 		yline(0) ///
 		vertical ///
 		rename(n_drought="Subjective Drought Incidence") ///
-		title("Perceptions of Drought Incidence")
+		title("Perceptions of Drought Incidence") ///
+		note("marginal effect of model 3 shown")
 	
 	
-
+*
 quietly eststo droughtint1: reg zweighted_aspirations_asset droughtint $varlist1_droughtint i.district, vce(cl HHID)
 quietly eststo droughtint2: reg zweighted_aspirations_asset droughtint $varlist2_droughtint i.district, vce(cl HHID)
 reg zweighted_aspirations_asset droughtint $varlist3_droughtint i.district, vce(cl HHID)
-eststo droughtint3: lincom droughtint - creditXdroughtint
+qui sum credit2 if e(sample)
+local mean4 = r(mean)
+eststo droughtint3: lincom droughtint - creditXdroughtint*`mean4'
 
 coefplot (droughtint1, label("Demographics")) (droughtint2, label("Coping" "Ability")) (droughtint3, label("Weather Expectations" "& Interactions")), ///
 		keep(droughtint) ///
 		yline(0) ///
 		vertical ///
 		rename(droughtint="Subjective Drought Length") ///
-		title("Perceptions of Drought Length")
+		title("Perceptions of Drought Length") ///
+		note("marginal effect of model 3 shown")
 
 
-		
+*		
 quietly eststo droughtfreq1: reg zaspirations_nolivestock droughtfreq2 $varlist1_droughtfreq i.district, vce(cl HHID) 
-quietly eststo droughtfreq2: reg zaspirations_nolivestock droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID) 
+quietly eststo droughtfreq2: reg zaspirations_nolivestock droughtfreq2 $varlist2_droughtfreq i.district, vce(cl HHID)
 reg zaspirations_nolivestock droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID) 
-eststo droughtfreq3: lincom droughtfreq2 - creditXdroughtfreq
+qui sum credit2 if e(sample)
+local mean5 = r(mean)
+eststo droughtfreq3: lincom droughtfreq2 + creditXdroughtfreq*`mean5'
 
-coefplot (droughtfreq1, label(Demographics)) (droughtfreq2, label("Coping" "Ability")) (droughtfreq3, label("Weather Expectations" "and Interactions")), ///
+coefplot (droughtfreq1, label("Demographics")) (droughtfreq2, label("Coping" "Ability")) (droughtfreq3, label("Weather Expectations" "and Interactions")), ///
 		keep(droughtfreq2) ///
 		yline(0) ///
 		vertical ///
 		rename(droughtfreq2="Drought Frequency") ///
-		title("Expectations of Future Drought")
+		title("Expectations of Future Drought") ///
+		note("marginal effect of model 3 shown")
 
 	
 **************************************************************************************************************************************
@@ -1925,6 +1935,39 @@ reg zaspirations_nolivestock $varlist3_droughtfreq i.district, vce(cl HHID)
 	ctitle("HICPS Drought" "Length") ///
 	keep(droughtfreq2) addtext(District FE, YES)
 	
+	
+*********************************************************************************************************************************************
+* comparing within/between camp variations
+bysort camp3: egen camp_ndrought = mean(n_drought)
+
+reg n_drought i.camp2
+predict resid_ndrought, residuals
+
+sum camp_ndrought resid_ndrought
+
+
+
+bysort camp3: egen camp_droughtint = mean(droughtint)	
+
+reg droughtint i.camp2
+predict resid_droughtint, residuals
+
+sum camp_droughtint resid_droughtint
+
+
+bysort camp3: egen camp_droughtfreq = mean(droughtfreq2)
+
+reg droughtfreq2 i.camp2
+predict resid_droughtfreq, residuals
+
+sum camp_droughtfreq resid_droughtfreq
+
+* master sum
+sum camp_ndrought resid_ndrought camp_droughtint resid_droughtint camp_droughtfreq resid_droughtfreq
+
+
+
+
 
 
 
