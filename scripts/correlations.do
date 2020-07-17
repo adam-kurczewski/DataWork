@@ -32,18 +32,21 @@ sort HHID year
 replace rank_asset_10 = rank_asset_median if rank_asset_10 == . & year == 2019
 
 
-*normalize aspirations measures
+*normalize aspirations measures (USE NON STANDARDIZED IND. DIMENSIONS AS OUTCOMES)
 egen zland_asp = std(rank_land_10)
 egen zlivestock_asp = std(rank_livestock_10)
 egen zasset_asp = std(rank_asset_10)
 egen zlivestock_noreplace = std(livestock_noreplace)
 
-*recode weights
-gen weighted_importance_land = importance_land
-gen weighted_importance_livestock = importance_livestock
-gen weighted_importance_assets = importance_assets
 
-foreach var in weighted_importance_land weighted_importance_livestock weighted_importance_assets {
+* artifact from change outcome?
+foreach var in exp_how_land exp_how_asset exp_how_livestock {
+	replace `var' = 0 if `var' == 4
+}
+
+
+*recode weights
+foreach var in importance_land importance_livestock importance_assets {
 	replace `var' = 5 if `var' == 3
 	replace `var' = 3 if `var' == 5
 	replace `var' = 2 if `var' == 6
@@ -51,15 +54,20 @@ foreach var in weighted_importance_land weighted_importance_livestock weighted_i
 	replace `var' = 1 if `var' == .
 }
 
-foreach var in exp_how_land exp_how_asset exp_how_livestock {
-	replace `var' = 0 if `var' == 4
-}
-
 * not important = 1
 * slightly important = 2
 * moderatly important = 3
 * important = 4
 * very important = 5
+
+* relative weighting
+gen total_importance = importance_land + importance_livestock + importance_assets
+gen weighted_importance_land = importance_land / total_importance
+gen weighted_importance_livestock = importance_livestock / total_importance
+gen weighted_importance_asset = importance_assets / total_importance
+
+
+
 
 *weight normalized individual dimensions
 gen zweighted_aspirations_land = zland_asp * weighted_importance_land
@@ -888,7 +896,6 @@ cd "C:\Users\kurczew2\Box\Research\HICPS\Visuals"
 gen prep = 0
 replace prep = 1 if prepared2 >= 1
 
-label var droughtfreq2 "Expected Drought Frequency"
 
 global varlist_master hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
@@ -912,8 +919,12 @@ label var rank_livestock_10 "Livestock Aspirations"
 label var rank_asset_10 "Asset Aspirations"
 label var weighted_importance_land "Land Importance"
 label var weighted_importance_livestock "Livestock Importance"
-label var weighted_importance_assets "Asset Importance"
-	
+label var weighted_importance_asset "Asset Importance"
+
+
+bys district: asdoc sum rank_land_10 rank_livestock_10 rank_asset_10 importance_land importance_livestock importance_assets, label ///
+	stat(mean) ///
+	save(bstable1million.doc), replace
 ***
 * histogram code in R for individual aspirations levels (easily adaptable into stata if needed)
 ***
@@ -926,10 +937,12 @@ label var weighted_importance_assets "Asset Importance"
 
 ***********************
 
-label var n_drought "HICPS Drought Incidence"
-label var droughtint "Subjective Drougth Length"
-label var total_negz "CHIRPS Drought Incidence"
-label var daily_zero_rain "CHIRPS Drought Length"
+label var n_drought "Perceived Drought Incidence"
+label var droughtint "Perceived Drougth Length"
+label var total_negz "Actual Drought Incidence"
+label var daily_zero_rain "Actual Drought Length"
+label var droughtfreq2 "Drought Frequency"
+
 label var district "District"
 
 
@@ -1121,30 +1134,34 @@ kdensity rank_asset_10 if daily_zero_rain < mean2, ///
 
 * perceived, actual, and expected drought ~ preparedness
 
-quietly reg n_drought prepared2 i.district if year == 2019
-	outreg2 using droughtXprepared.doc, replace ///
-	ctitle("Perceived Number" "of Droughts") ///
-	keep (prepared2) addtext(District FE, YES) title(Table X.X:)
+global table_varlist hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father ///
+	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	
-quietly reg droughtint prepared2 i.district  if year == 2019
-	outreg2 using droughtXprepared.doc, append ///
-	ctitle("Perceived" "Drought Length") ///
-	keep (prepared2) title(Table X.X:)
 	
-quietly reg total_negz prepared2 i.district if year == 2019
-	outreg2 using droughtXprepared.doc, append ///
-	ctitle("Actual Number" "of Droughts") ///
-	keep (prepared2) title(Table X.X:)
+quietly reg prepared2 n_drought $table_varlist i.district if year == 2019
+	outreg2 using droughtXprepared.doc, lab replace ///
+	ctitle(" ") ///
+	keep (n_drought $table_varlist) addtext(District FE, YES) title(Table X.X:)
 	
-quietly reg daily_zero_rain prepared2 i.district if year == 2019
-	outreg2 using droughtXprepared.doc, append ///
-	ctitle("Actual" "Drought Length") ///
-	keep (prepared2) title(Table X.X:)
+quietly reg prepared2 droughtint $table_varlist i.district  if year == 2019
+	outreg2 using droughtXprepared.doc, lab append ///
+	ctitle(" ") ///
+	keep (droughtint $table_varlist) title(Table X.X:)
 	
-quietly reg droughtfreq2 prepared2 i.district if year == 2019
-	outreg2 using droughtXprepared.doc, append ///
-	ctitle("Drought Expectations") ///
-	keep (prepared2) title(Table X.X:)
+quietly reg prepared2 total_negz $table_varlist i.district if year == 2019
+	outreg2 using droughtXprepared.doc, lab append ///
+	ctitle(" ") ///
+	keep (total_negz $table_varlist) title(Table X.X:)
+	
+quietly reg prepared2 daily_zero_rain $table_varlist i.district if year == 2019
+	outreg2 using droughtXprepared.doc, lab append ///
+	ctitle(" ") ///
+	keep (daily_zero_rain $table_varlist) title(Table X.X:)
+	
+quietly reg prepared2 droughtfreq2 $table_varlist i.district if year == 2019
+	outreg2 using droughtXprepared.doc, lab append ///
+	ctitle(" ") ///
+	keep (droughtfreq2 $table_varlist) title(Table X.X:)
 	
 
 		
@@ -1152,25 +1169,25 @@ quietly reg droughtfreq2 prepared2 i.district if year == 2019
 
 
 * perceived and actual drought ~ expected drought
-quietly reg n_drought droughtfreq2 i.district if year == 2019
-	outreg2 using droughtXexpect.doc, replace ///
-	ctitle("Perceived Number" "of Droughts") ///
-	keep (droughtfreq2) addtext(District FE, YES) title(Table X.X:)
+quietly reg droughtfreq2 n_drought $table_varlist i.district if year == 2019
+	outreg2 using droughtXexpect.doc, lab replace ///
+	ctitle(" ") ///
+	keep (n_drought $table_varlist) addtext(District FE, YES) title(Table X.X:)
 	
-quietly reg droughtint droughtfreq2 i.district if year == 2019
-	outreg2 using droughtXexpect.doc, append ///
-	ctitle("Perceived" "Drought Length") ///
-	keep (droughtfreq2) title(Table X.X:)
+quietly reg droughtfreq2 droughtint $table_varlist i.district if year == 2019
+	outreg2 using droughtXexpect.doc, lab append ///
+	ctitle(" ") ///
+	keep (droughtint $table_varlist) title(Table X.X:)
 	
-quietly reg total_negz droughtfreq2 i.district if year == 2019
-	outreg2 using droughtXexpect.doc, append ///
-	ctitle("Actual Number" "of Droughts") ///
-	keep (droughtfreq2) title(Table X.X:)
+quietly reg droughtfreq2 total_negz $table_varlist i.district if year == 2019
+	outreg2 using droughtXexpect.doc, lab append ///
+	ctitle(" ") ///
+	keep (total_negz $table_varlist) title(Table X.X:)
 	
-quietly reg daily_zero_rain droughtfreq2 i.district if year == 2019
-	outreg2 using droughtXexpect.doc, append ///
-	ctitle("Actual" "Drought Length") ///
-	keep (droughtfreq2) title(Table X.X:)
+quietly reg droughtfreq2 daily_zero_rain $table_varlist i.district if year == 2019
+	outreg2 using droughtXexpect.doc, lab append ///
+	ctitle(" ") ///
+	keep (daily_zero_rain $table_varlist) title(Table X.X:)
 
 
 	
@@ -1190,6 +1207,24 @@ kdensity rank_asset_10 if prepared2 == 0, ///
 	addplot(kdensity rank_asset_10 if prepared2 == 1 || kdensity rank_asset_10 if prepared2 == 2) ///
 	title("Asset Aspirations and" "Level of Subjective Drought Preparedness") ///
 	legend(label(1 "Not Prepared") label(2 "Somewhat Prepared") label(3 "Prepared"))
+	
+	
+	
+* scatter of aspirations
+
+label var rank_asset "Current Assets"
+label var rank_asset_10 "Asset Aspirations"
+label var rank_land "Current Land"
+label var rank_land_10 "Land Aspirations"
+	
+twoway scatter rank_asset_10 rank_land_10 if year == 2019, ///
+	title(Land and Asset Aspirations Tradeoff)
+	
+scatter rank_land_10 rank_land if year == 2019, ///
+	title(Current and Aspired Land Ownership)
+
+scatter rank_asset_10 rank_asset if year == 2019, ///
+	title(Current and Aspired Asset Ownership)
 	
 *=====================================================================================*
 
@@ -1228,7 +1263,7 @@ gen activityXzerorain = activities_drought2 * daily_zero_rain
 **** Shock: number of droughts
 
 *retain varlist including those vars not used in final speciifcation as a record of complete list
-global varlist_master n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father i.district ///
+global varlist_master hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 educ_mother educ_father i.district ///
 	credit2 farmland2 livestock_index2 asset_pca migrant3  ///
 	rains2 prepared2 activities_drought2 
 	
@@ -1261,19 +1296,19 @@ global varlist3_ndrought n_drought hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num
 									** SIMPLE **
 									************
 									
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zw_live_NOREP zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 zw_live_NOREP {
 	reg `var' $varlist1_ndrought i.district, vce(cl HHID) base
-		outreg2 using `var'Xndrought.doc, replace ///
+		outreg2 using `var'Xndrought.doc, lab replace ///
 		ctitle(" ") ///
 		keep ($varlist1_ndrought) addtext(District FE, YES) title(Table X.X:)
 		
 	reg `var' $varlist2_ndrought i.district, vce(cl HHID) base
-		outreg2 using `var'Xndrought.doc, append ///
+		outreg2 using `var'Xndrought.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist2_ndrought) addtext(District FE, YES) title(Table X.X:)
 		
 	reg `var' $varlist3_ndrought i.district, vce(cl HHID) base
-		outreg2 using `var'Xndrought.doc, append ///
+		outreg2 using `var'Xndrought.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist3_ndrought) addtext(District FE, YES) title(Table X.X:)
 }
@@ -1375,19 +1410,19 @@ global varlist3_droughtint droughtint hh_head_age2 hh_head_sex2 hh_head_edu2 hh_
 *******************************
 
 
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 {
 	reg `var' $varlist1_droughtint i.district, vce(cl HHID) base
-		outreg2 using `var'Xndroughtint.doc, replace ///
+		outreg2 using `var'Xndroughtint.doc, lab replace ///
 		ctitle(" ") ///
 		keep ($varlist1_droughtint) addtext(District FE, YES) title(Table X.X:)
 		
 	reg `var' $varlist2_droughtint i.district, vce(cl HHID) base
-		outreg2 using `var'Xndroughtint.doc, append ///
+		outreg2 using `var'Xndroughtint.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist2_droughtint) addtext(District FE, YES) title(Table X.X:)
 		
 	reg `var' $varlist3_droughtint i.district, vce(cl HHID) base
-		outreg2 using `var'Xndroughtint.doc, append ///
+		outreg2 using `var'Xndroughtint.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist3_droughtint) addtext(District FE, YES) title(Table X.X:)
 }
@@ -1479,19 +1514,19 @@ global varlist3_droughtfreq droughtfreq2 hh_head_age2 hh_head_sex2 hh_head_edu2 
 	
 	
 
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 {
 	reg `var' $varlist1_droughtfreq i.district, vce(cl HHID) base
-		outreg2 using `var'Xdroughtfreq.doc, replace ///
+		outreg2 using `var'Xdroughtfreq.doc, lab replace ///
 		ctitle(" ") ///
 		keep($varlist1_droughtfreq) addtext(District FE, YES) lab title(Table X.X:)
 		
 	reg `var' $varlist2_droughtfreq i.district, vce(cl HHID) base
-		outreg2 using `var'Xdroughtfreq.doc, append ///
+		outreg2 using `var'Xdroughtfreq.doc, lab append ///
 		ctitle(" ") ///
 		keep($varlist2_droughtfreq) addtext(District FE, YES)
 		
 	reg `var' $varlist3_droughtfreq i.district, vce(cl HHID) base
-		outreg2 using `var'Xdroughtfreq.doc, append ///
+		outreg2 using `var'Xdroughtfreq.doc, lab append ///
 		ctitle(" ") ///
 		keep($varlist3_droughtfreq) addtext(District FE, YES)
 }
@@ -1619,19 +1654,19 @@ global varlist3_negz total_negz hh_head_age2 hh_head_sex2 hh_head_edu2 hh_num2 e
 	creditXnegz  
 	
 
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 {
 	reg `var' $varlist1_negz i.district, vce(cl HHID) base
-		outreg2 using `var'Xnegz10yr.doc, replace ///
+		outreg2 using `var'Xnegz10yr.doc, lab replace ///
 		ctitle(" ") ///
 		keep($varlist1_negz) addtext(District FE, YES) lab title(Table X.X:)
 		
 	reg `var' $varlist2_negz i.district, vce(cl HHID) base
-		outreg2 using `var'Xnegz10yr.doc, append ///
+		outreg2 using `var'Xnegz10yr.doc, lab append ///
 		ctitle(" ") ///
 		keep($varlist2_negz) addtext(District FE, YES)
 		
 	reg `var' $varlist3_negz i.district, vce(cl HHID) base
-		outreg2 using `var'Xnegz10yr.doc, append ///
+		outreg2 using `var'Xnegz10yr.doc, lab append ///
 		ctitle(" ") ///
 		keep($varlist3_negz) addtext(District FE, YES)
 }
@@ -1657,19 +1692,19 @@ global varlist3_zerorain daily_zero_rain hh_head_age2 hh_head_sex2 hh_head_edu2 
 	creditXzerorain  
 	
 
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 {
 	reg `var' $varlist1_zerorain i.district, vce(cl HHID) base
-		outreg2 using `var'Xnorain.doc, replace ///
+		outreg2 using `var'Xnorain.doc, lab replace ///
 		ctitle(" ") ///
 		keep($varlist1_zerorain) addtext(District FE, YES) lab title(Table X.X:)
 		
 	reg `var' $varlist2_zerorain i.district, vce(cl HHID) base
-		outreg2 using `var'Xnorain.doc, append ///
+		outreg2 using `var'Xnorain.doc, lab append ///
 		ctitle(" ") ///
 		keep($varlist2_zerorain) addtext(District FE, YES)
 		
 	reg `var' $varlist3_zerorain i.district, vce(cl HHID) base
-		outreg2 using `var'Xnorain.doc, append ///
+		outreg2 using `var'Xnorain.doc, lab append ///
 		ctitle(" ") ///
 		keep($varlist3_zerorain) addtext(District FE, YES)
 }
@@ -1696,19 +1731,19 @@ global varlist3_negz_ndrought n_drought total_negz hh_head_age2 hh_head_sex2 hh_
 	creditXndrought 
 
 	
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 {
 	reg `var' $varlist1_negz_ndrought i.district, vce(cl HHID) base
-		outreg2 using `var'Xnegz_ndrought.doc, replace ///
+		outreg2 using `var'Xnegz_ndrought.doc, lab replace ///
 		ctitle(" ") ///
 		keep ($varlist1_negz_ndrought) addtext(District FE, YES) lab title(Table X.X:)
 		
 	reg `var' $varlist2_negz_ndrought i.district, vce(cl HHID) base
-		outreg2 using `var'Xnegz_ndrought.doc, append ///
+		outreg2 using `var'Xnegz_ndrought.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist2_negz_ndrought) addtext(District FE, YES) lab title(Table X.X:)
 		
 	reg `var' $varlist3_negz_ndrought i.district, vce(cl HHID) base
-		outreg2 using `var'Xnegz_ndrought.doc, append ///
+		outreg2 using `var'Xnegz_ndrought.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist3_negz_ndrought) addtext(District FE, YES) lab title(Table X.X:)
 }
@@ -1733,19 +1768,19 @@ global varlist3_zerorain_droughtint droughtint daily_zero_rain hh_head_age2 hh_h
 	creditXdroughtint
 	
 
-foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_aspirations_livestock zweighted_aspirations_asset {
+foreach var in zaspirations_nolivestock rank_land_10 rank_livestock_10 rank_asset_10 {
 	reg `var' $varlist1_zerorain_droughtint i.district, vce(cl HHID) base
-		outreg2 using `var'Xzerorain_droughtint.doc, replace ///
+		outreg2 using `var'Xzerorain_droughtint.doc, lab replace ///
 		ctitle(" ") ///
 		keep ($varlist1_zerorain_droughtint) addtext(District FE, YES) title(Table X.X:)
 		
 	reg `var' $varlist2_zerorain_droughtint i.district, vce(cl HHID) base
-		outreg2 using `var'Xzerorain_droughtint.doc, append ///
+		outreg2 using `var'Xzerorain_droughtint.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist2_zerorain_droughtint) addtext(District FE, YES) title(Table X.X:)
 		
 	reg `var' $varlist3_zerorain_droughtint i.district, vce(cl HHID) base
-		outreg2 using `var'Xzerorain_droughtint.doc, append ///
+		outreg2 using `var'Xzerorain_droughtint.doc, lab append ///
 		ctitle(" ") ///
 		keep ($varlist3_zerorain_droughtint) addtext(District FE, YES) title(Table X.X:)
 }
@@ -1793,28 +1828,37 @@ foreach var in zaspirations_nolivestock zweighted_aspirations_land zweighted_asp
 */
 
 
-* coef dotplot
+
+
+
+
+****************************************************************************************
+
+******************************** DOT PLOTS *********************************************
+
+****************************************************************************************
+* results coef dotplot
 foreach var in n_drought droughtint total_negz daily_zero_rain droughtfreq2 {
 	sum `var'
 	g sd_`var' = (`var' - r(mean))/r(sd)
 }	
-	
+
 quietly eststo perc_agg_ndrought: reg zaspirations_nolivestock sd_n_drought $varlist3_ndrought i.district, vce(cl HHID) 
-quietly eststo perc_asset_droughtint: reg zweighted_aspirations_asset sd_droughtint $varlist3_droughtint i.district, vce(cl HHID)
+quietly eststo perc_agg_droughtint: reg zaspirations_nolivestock sd_droughtint $varlist3_droughtint i.district, vce(cl HHID)
 quietly eststo actual_agg_negz: reg zaspirations_nolivestock sd_total_negz $varlist3_negz i.district, vce(cl HHID)
 quietly eststo actual_agg_zerorain: reg zaspirations_nolivestock sd_daily_zero_rain $varlist3_zerorain i.district, vce(cl HHID)
 quietly eststo expec_agg: reg zaspirations_nolivestock sd_droughtfreq2 $varlist3_droughtfreq i.district, vce(cl HHID)
 
-coefplot (actual_agg_negz actual_agg_zerorain perc_agg_ndrought perc_asset_droughtint   expec_agg), ///
+coefplot (perc_agg_ndrought perc_agg_droughtint actual_agg_negz actual_agg_zerorain expec_agg), ///
 	keep(sd_n_drought sd_droughtint sd_total_negz sd_daily_zero_rain sd_droughtfreq2) ///
 	yline(0) ///
 	vertical ///
 	title("Regression Coefficients of Various" "Weather Shocks on Aspirations") ///
-	coeflabels(sd_n_drought="HICPS drought incidence" ///
-				sd_droughtint="HICPS drought length" ///
-				sd_total_negz="CHIRPS drought incidence" ///
-				sd_daily_zero_rain="CHIRPS drought length" ///
-				sd_droughtfreq2="Drought frequency", wrap(10)) ///
+	coeflabels(sd_n_drought="perceived drought incidence" ///
+				sd_droughtint="perceived drought length" ///
+				sd_total_negz="actual drought incidence" ///
+				sd_daily_zero_rain="actual drought length" ///
+				sd_droughtfreq2="drought frequency", wrap(10)) ///
 	note(Drought variables standardized prior to plotting for comparison of coefficients)
 				
 
